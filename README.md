@@ -1,6 +1,6 @@
 # TallerFlow - Sistema de Control Vehicular
 
-**Versión:** v0.1.0 - Fase A  
+**Versión:** v0.1.1 - Fase A  
 **Autor:** Grupo Lance  
 
 ## Descripción
@@ -19,17 +19,17 @@ Esta es la **Fase A** - Infraestructura mínima funcional. No incluye IA generat
 ## Stack Tecnológico
 
 - **Backend:** Node.js + Express
-- **Base de datos:** PostgreSQL (compatible con Supabase)
+- **Base de datos:** SQLite (compatible con PostgreSQL/Supabase)
 - **Frontend:** HTML puro + CSS responsive + JavaScript vanilla
-- **ORM:** pg (PostgreSQL driver)
+- **ORM:** sqlite3 driver
 
 ## Instalación
 
 ### Requisitos Previos
 
 - Node.js >= 16.0.0
-- PostgreSQL >= 12.0
 - npm o yarn
+- (No requiere PostgreSQL - usa SQLite local)
 
 ### Pasos de Instalación
 
@@ -43,31 +43,13 @@ Esta es la **Fase A** - Infraestructura mínima funcional. No incluye IA generat
    npm install
    ```
 
-3. **Configurar base de datos**
-   ```bash
-   # Copiar archivo de configuración
-   copy .env.example .env
-   
-   # Editar .env con tus datos de PostgreSQL
-   # DB_HOST=localhost
-   # DB_PORT=5432
-   # DB_NAME=taller_control
-   # DB_USER=tu_usuario
-   # DB_PASSWORD=tu_password
-   ```
-
-4. **Crear base de datos y tabla**
-   ```bash
-   # En PostgreSQL, ejecutar el script:
-   psql -U tu_usuario -d taller_control -f db/schema.sql
-   ```
-
-5. **Iniciar servidor**
+3. **Iniciar servidor**
    ```bash
    npm start
    ```
+   (La base de datos SQLite se creará automáticamente)
 
-6. **Acceder a la aplicación**
+4. **Acceder a la aplicación**
    ```
    http://localhost:3000
    ```
@@ -137,8 +119,9 @@ Agente_Mecanico/
 ├── models/
 │   └── Vehicle.js        # Modelo de datos + función determinista
 ├── db/
-│   ├── connection.js     # Conexión PostgreSQL
-│   └── schema.sql        # Script de creación de tabla
+│   ├── sqlite-connection.js  # Conexión SQLite
+│   ├── connection.js         # Conexión PostgreSQL (legacy)
+│   └── schema.sql           # Script de creación (PostgreSQL)
 └── public/
     ├── index.html        # Frontend HTML
     ├── styles.css        # CSS responsive
@@ -191,7 +174,7 @@ npm run dev    # Iniciar servidor de desarrollo (alias de start)
 
 - **Navegadores:** Chrome, Firefox, Safari, Edge (versiones modernas)
 - **Dispositivos:** Responsive design para móvil y escritorio
-- **Base de datos:** PostgreSQL, Supabase
+- **Base de datos:** SQLite (desarrollo), PostgreSQL/Supabase (producción)
 
 ## Características Técnicas
 

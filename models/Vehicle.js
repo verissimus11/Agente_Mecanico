@@ -16,32 +16,37 @@ class Vehicle {
     
     const statusTranslations = {
       'EN_REVISION': 'en revisión',
-      'ESPERANDO_PIEZA': 'esperando pieza', 
-      'PRESUPUESTO_PENDIENTE': 'con presupuesto pendiente',
-      'LISTO': 'listo'
+      'ESPERANDO_PIEZA': 'esperando repuesto', 
+      'PRESUPUESTO_PENDIENTE': 'con presupuesto pendiente de aprobación',
+      'LISTO': 'listo para retirar'
     };
 
     const statusText = statusTranslations[vehicle.status] || vehicle.status.toLowerCase();
-    const updatedAt = new Date(vehicle.updated_at).toLocaleString('es-ES', {
+    
+    // Formatear fecha en español legible
+    const updatedAt = new Date(vehicle.updated_at).toLocaleDateString('es-ES', {
+      weekday: 'long',
       year: 'numeric',
-      month: '2-digit', 
-      day: '2-digit',
+      month: 'long', 
+      day: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
     });
 
-    return `Tu vehículo con matrícula ${vehicle.plate} está actualmente en estado ${statusText}. Última actualización: ${updatedAt}. Te avisaremos cuando haya cambios.`;
+    return `Tu vehículo con matrícula ${vehicle.plate} está actualmente ${statusText}. Última actualización: ${updatedAt}. Te avisaremos cuando haya cambios.`;
   }
 
   // Crear nuevo vehículo
   static async create(plate, phone) {
     const id = uuidv4();
+    const normalizedPlate = plate.trim().toUpperCase().replace(/\s+/g, '');
+    
     const query = `
       INSERT INTO vehicles (id, plate, phone, status, active)
       VALUES (?, ?, ?, ?, ?)
     `;
     
-    const values = [id, plate.toUpperCase(), phone, this.STATUSES.EN_REVISION, 1];
+    const values = [id, normalizedPlate, phone, this.STATUSES.EN_REVISION, 1];
     await runQuery(query, values);
     
     // Obtener el registro creado
@@ -92,6 +97,7 @@ class Vehicle {
 
   // Buscar por matrícula
   static async findByPlate(plate) {
+    const normalizedPlate = plate.trim().toUpperCase().replace(/\s+/g, '');
     const query = `
       SELECT * FROM vehicles 
       WHERE plate = ? AND active = 1
@@ -99,7 +105,7 @@ class Vehicle {
       LIMIT 1
     `;
     
-    const result = await getQuery(query, [plate.toUpperCase()]);
+    const result = await getQuery(query, [normalizedPlate]);
     return result;
   }
 

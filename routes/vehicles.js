@@ -18,4 +18,7 @@ router.get('/by-phone/:phone', VehicleController.findByPhone);
 // GET /vehicles/by-plate/:plate - Buscar por matrícula
 router.get('/by-plate/:plate', VehicleController.findByPlate);
 
+// GET /vehicles/:id - Buscar por ID
+router.get('/:id', VehicleController.findById);
+
 module.exports = router;

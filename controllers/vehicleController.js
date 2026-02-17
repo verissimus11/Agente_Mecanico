@@ -14,11 +14,14 @@ class VehicleController {
         });
       }
 
+      // Normalizar matrícula: mayúsculas y sin espacios
+      const normalizedPlate = plate.trim().toUpperCase().replace(/\s+/g, '');
+
       // Validar formato de matrícula (básico)
-      if (plate.length < 3 || plate.length > 20) {
+      if (normalizedPlate.length < 3 || normalizedPlate.length > 15) {
         return res.status(400).json({
           error: 'INVALID_PLATE',
-          message: 'Formato de matrícula inválido'
+          message: 'La matrícula debe tener entre 3 y 15 caracteres'
         });
       }
 
@@ -30,7 +33,19 @@ class VehicleController {
         });
       }
 
-      const vehicle = await Vehicle.create(plate, phone);
+      // Verificar duplicados activos
+      const existingVehicle = await Vehicle.findByPlate(normalizedPlate);
+      if (existingVehicle) {
+        return res.status(409).json({
+          error: 'VEHICLE_ALREADY_ACTIVE',
+          message: `Ya existe un vehículo activo con la matrícula ${normalizedPlate}`
+        });
+      }
+
+      const vehicle = await Vehicle.create(normalizedPlate, phone);
+      
+      // Logging mínimo
+      console.log(`✅ Vehículo creado: ${vehicle.plate} - ${vehicle.phone}`);
       
       res.status(201).json({
         success: true,
@@ -39,7 +54,7 @@ class VehicleController {
       });
 
     } catch (error) {
-      console.error('Error creando vehículo:', error);
+      console.error('❌ Error creando vehículo:', error);
       res.status(500).json({
         error: 'INTERNAL_ERROR',
         message: 'Error interno del servidor'
@@ -91,17 +106,21 @@ class VehicleController {
         });
       }
 
+      // Logging mínimo
+      console.log(`🔄 Estado actualizado: ${vehicle.plate} → ${status}`);
+
       res.json({
         success: true,
         data: vehicle,
-        message: Vehicle.generateStatusMessage(vehicle)
+        message: 'Estado actualizado correctamente',
+        statusMessage: Vehicle.generateStatusMessage(vehicle)
       });
 
     } catch (error) {
-      console.error('Error actualizando estado:', error);
+      console.error('❌ Error actualizando estado:', error);
       res.status(500).json({
         error: 'INTERNAL_ERROR',
-        message: 'Error interno del servidor'
+        message: 'Error al actualizar. Intenta nuevamente.'
       });
     }
   }
@@ -155,6 +174,34 @@ class VehicleController {
 
     } catch (error) {
       console.error('Error buscando por matrícula:', error);
+      res.status(500).json({
+        error: 'INTERNAL_ERROR', 
+        message: 'Error interno del servidor'
+      });
+    }
+  }
+
+  // GET /vehicles/:id - Buscar por ID
+  static async findById(req, res) {
+    try {
+      const { id } = req.params;
+      const vehicle = await Vehicle.findById(id);
+
+      if (!vehicle) {
+        return res.status(404).json({
+          error: 'VEHICLE_NOT_FOUND',
+          message: 'Vehículo no encontrado'
+        });
+      }
+
+      res.json({
+        success: true,
+        data: vehicle,
+        message: Vehicle.generateStatusMessage(vehicle)
+      });
+
+    } catch (error) {
+      console.error('❌ Error buscando por ID:', error);
       res.status(500).json({
         error: 'INTERNAL_ERROR', 
         message: 'Error interno del servidor'

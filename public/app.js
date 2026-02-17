@@ -40,6 +40,12 @@ document.addEventListener('DOMContentLoaded', function() {
 function initializeApp() {
     setupEventListeners();
     loadVehicles();
+    
+    // Deshabilitar botones de estado inicialmente
+    Object.values(statusButtons).forEach(btn => {
+        btn.disabled = true;
+        btn.dataset.originalText = btn.textContent;
+    });
 }
 
 function setupEventListeners() {
@@ -58,16 +64,27 @@ async function handleVehicleSubmit(event) {
     event.preventDefault();
     
     const formData = new FormData(vehicleForm);
-    const vehicleData = {
-        plate: formData.get('plate').trim(),
-        phone: formData.get('phone').trim()
-    };
+    let plate = formData.get('plate').trim();
+    const phone = formData.get('phone').trim();
     
-    // Validación básica
-    if (!vehicleData.plate || !vehicleData.phone) {
+    // Normalización automática de matrícula
+    plate = plate.toUpperCase().replace(/\s+/g, '');
+    
+    // Validación básica mejorada
+    if (!plate || !phone) {
         showMessage('Por favor completa todos los campos', 'error');
         return;
     }
+    
+    if (plate.length < 3 || plate.length > 15) {
+        showMessage('La matrícula debe tener entre 3 y 15 caracteres', 'error');
+        return;
+    }
+    
+    // Mostrar en el campo la versión normalizada
+    document.getElementById('plate').value = plate;
+    
+    const vehicleData = { plate, phone };
     
     try {
         const response = await fetch('/vehicles', {
@@ -85,7 +102,12 @@ async function handleVehicleSubmit(event) {
             vehicleForm.reset();
             loadVehicles(); // Recargar tabla
         } else {
-            showMessage(result.message || 'Error al registrar vehículo', 'error');
+            // Manejar diferentes tipos de error
+            if (result.error === 'VEHICLE_ALREADY_ACTIVE') {
+                showMessage(`Ya existe un vehículo activo con la matrícula ${plate}. Verifica la tabla de vehículos.`, 'error', 6000);
+            } else {
+                showMessage(result.message || 'Error al registrar vehículo', 'error');
+            }
         }
         
     } catch (error) {
@@ -179,13 +201,17 @@ async function updateVehicleStatus(newStatus) {
     }
     
     try {
-        // Deshabilitar botón temporalmente
+        // Deshabilitar todos los botones temporalmente
+        Object.values(statusButtons).forEach(btn => {
+            btn.disabled = true;
+        });
+        
+        // Encontrar y actualizar el botón activo
         const activeButton = Object.values(statusButtons).find(btn => 
             btn.textContent.replace(/\s+/g, '_').toUpperCase() === newStatus
         );
         
         if (activeButton) {
-            activeButton.disabled = true;
             activeButton.innerHTML = '<span class="loading"></span> Actualizando...';
         }
         
@@ -203,7 +229,8 @@ async function updateVehicleStatus(newStatus) {
         const result = await response.json();
         
         if (response.ok) {
-            showMessage(result.message, 'success');
+            // Mostrar mensaje de éxito que desaparece automáticamente
+            showMessage('Estado actualizado correctamente', 'success', 3000);
             loadVehicles(); // Recargar tabla
             
             // Mantener selección después de actualizar
@@ -215,7 +242,7 @@ async function updateVehicleStatus(newStatus) {
             }, 100);
             
         } else {
-            showMessage(result.message || 'Error al actualizar estado', 'error');
+            showMessage('Error al actualizar. Intenta nuevamente.', 'error');
         }
         
     } catch (error) {
@@ -223,25 +250,29 @@ async function updateVehicleStatus(newStatus) {
         showMessage('Error de conexión al actualizar estado', 'error');
     } finally {
         // Restaurar botones
-        Object.values(statusButtons).forEach(btn => {
-            btn.disabled = false;
-            btn.innerHTML = btn.dataset.originalText || btn.textContent;
-        });
+        setTimeout(() => {
+            Object.values(statusButtons).forEach(btn => {
+                btn.disabled = selectedVehicleId === null;
+                const originalText = btn.dataset.originalText || btn.textContent;
+                btn.innerHTML = originalText;
+            });
+        }, 500);
     }
 }
 
 // Mostrar mensaje
-function showMessage(message, type = 'info') {
+function showMessage(message, type = 'info', duration = 5000) {
     messageContent.textContent = message;
     messageContent.className = `message ${type}`;
     messageContainer.style.display = 'block';
     messageContainer.classList.add('fade-in');
     
-    // Auto-ocultar después de 5 segundos para mensajes de éxito
-    if (type === 'success') {
+    // Auto-ocultar después del tiempo especificado
+    if (duration > 0) {
         setTimeout(() => {
             messageContainer.style.display = 'none';
-        }, 5000);
+            messageContainer.classList.remove('fade-in');
+        }, duration);
     }
 }
 
