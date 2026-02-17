@@ -25,7 +25,7 @@
                     <div class="form-group">
                         <label for="plate">Matrícula</label>
                         <input type="text" id="plate" name="plate" required 
-                               placeholder="Ej: ABC123" maxlength="20">
+                               placeholder="Ej: 3107 JBN" maxlength="20">
                     </div>
                     
                     <div class="form-group">
@@ -67,6 +67,7 @@
                                 <th>Teléfono</th>
                                 <th>Estado</th>
                                 <th>Última Actualización</th>
+                                <th>Acciones</th>
                             </tr>
                         </thead>
                         <tbody id="vehiclesTableBody">
@@ -111,6 +112,33 @@
             </section>
         </div>
     </main>
+
+    <!-- Modal de edición -->
+    <div id="editModal" class="modal-overlay" style="display: none;">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>✏️ Editar Vehículo</h3>
+                <button class="modal-close" onclick="closeEditModal()">&times;</button>
+            </div>
+            <form id="editForm">
+                <input type="hidden" id="editVehicleId">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="editPlate">Matrícula</label>
+                        <input type="text" id="editPlate" maxlength="20" placeholder="Ej: 3107 JBN">
+                    </div>
+                    <div class="form-group">
+                        <label for="editPhone">Teléfono</label>
+                        <input type="tel" id="editPhone" maxlength="20" placeholder="Ej: +34 612 345 678">
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <footer class="footer">
         <div class="container">

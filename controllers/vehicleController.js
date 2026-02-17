@@ -161,6 +161,78 @@ class VehicleController {
     }
   }
 
+  // PATCH /vehicles/:id - Editar datos del vehículo (matrícula/teléfono)
+  static async editVehicle(req, res) {
+    try {
+      const { id } = req.params;
+      const { plate, phone } = req.body;
+      const workshopId = req.workshopId;
+
+      if (!plate && !phone) {
+        return res.status(400).json({
+          error: 'MISSING_FIELDS',
+          message: 'Debes enviar al menos matrícula o teléfono para editar'
+        });
+      }
+
+      const updates = {};
+
+      if (plate) {
+        const normalizedPlate = plate.trim().toUpperCase().replace(/\s+/g, '');
+        if (normalizedPlate.length < 3 || normalizedPlate.length > 15) {
+          return res.status(400).json({
+            error: 'INVALID_PLATE',
+            message: 'La matrícula debe tener entre 3 y 15 caracteres'
+          });
+        }
+        // Comprobar que no haya otro vehículo activo con la misma matrícula
+        const existing = await Vehicle.findByPlate(workshopId, normalizedPlate);
+        if (existing && existing.id !== id) {
+          return res.status(409).json({
+            error: 'VEHICLE_ALREADY_ACTIVE',
+            message: `Ya existe un vehículo activo con la matrícula ${normalizedPlate}`
+          });
+        }
+        updates.plate = normalizedPlate;
+      }
+
+      if (phone) {
+        const normalizedPhone = VehicleController.normalizeSpanishPhone(phone);
+        if (!normalizedPhone) {
+          return res.status(400).json({
+            error: 'INVALID_PHONE',
+            message: 'Teléfono inválido. Debe ser un número español válido (9 dígitos).'
+          });
+        }
+        updates.phone = normalizedPhone;
+      }
+
+      const vehicle = await Vehicle.updateData(id, workshopId, updates);
+
+      if (!vehicle) {
+        return res.status(404).json({
+          error: 'VEHICLE_NOT_FOUND',
+          message: 'Vehículo no encontrado'
+        });
+      }
+
+      console.log(`✏️ Vehículo editado: ${vehicle.plate} - ${vehicle.phone}`);
+
+      res.json({
+        success: true,
+        data: vehicle,
+        message: 'Datos del vehículo actualizados correctamente'
+      });
+
+    } catch (error) {
+      console.error('❌ Error editando vehículo:', error);
+      res.status(500).json({
+        error: 'INTERNAL_ERROR',
+        message: 'Error interno del servidor'
+      });
+    }
+  }
+
   // GET /vehicles/by-phone/:phone
   static async findByPhone(req, res) {
     try {

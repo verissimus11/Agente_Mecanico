@@ -111,6 +111,34 @@ class Vehicle {
     return await getQuery(query, [id, workshopId]);
   }
 
+  // Actualizar datos del vehículo (matrícula y/o teléfono)
+  static async updateData(id, workshopId, updates) {
+    const fields = [];
+    const values = [];
+
+    if (updates.plate !== undefined) {
+      fields.push('plate = ?');
+      values.push(updates.plate.trim().toUpperCase().replace(/\s+/g, ''));
+    }
+    if (updates.phone !== undefined) {
+      fields.push('phone = ?');
+      values.push(updates.phone);
+    }
+
+    if (fields.length === 0) return null;
+
+    fields.push('updated_at = CURRENT_TIMESTAMP');
+    values.push(id, workshopId);
+
+    const query = `
+      UPDATE vehicles
+      SET ${fields.join(', ')}
+      WHERE id = ? AND workshop_id = ? AND active = 1
+    `;
+    await runQuery(query, values);
+    return await getQuery('SELECT * FROM vehicles WHERE id = ? AND workshop_id = ?', [id, workshopId]);
+  }
+
   // Buscar por matrícula y workshop_id (para endpoint público)
   static async findActiveByPlateAndWorkshop(workshopId, plate) {
     const normalizedPlate = plate.trim().toUpperCase().replace(/\s+/g, '');

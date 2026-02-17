@@ -255,7 +255,11 @@ function renderVehiclesTable() {
         return;
     }
 
-    vehiclesTableBody.innerHTML = filtered.map((vehicle) => `
+    vehiclesTableBody.innerHTML = filtered.map((vehicle) => {
+        const trackUrl = currentWorkshop && currentWorkshop.slug
+            ? `${window.location.origin}/${currentWorkshop.slug}/status/${vehicle.plate}`
+            : '';
+        return `
         <tr data-vehicle-id="${vehicle.id}" class="vehicle-row ${vehicle.id === selectedVehicleId ? 'selected' : ''}" onclick="selectVehicle('${vehicle.id}')">
             <td><strong>${vehicle.plate}</strong></td>
             <td>${vehicle.phone}</td>
@@ -265,8 +269,12 @@ function renderVehiclesTable() {
                 </span>
             </td>
             <td>${formatDate(vehicle.updated_at)}</td>
+            <td class="actions-cell" onclick="event.stopPropagation()">
+                <button class="btn-action btn-edit" onclick="openEditModal('${vehicle.id}')" title="Editar datos">✏️</button>
+                ${trackUrl ? `<button class="btn-action btn-track" onclick="openTracking('${trackUrl}')" title="Ver seguimiento público">🔗</button>` : ''}
+            </td>
         </tr>
-    `).join('');
+    `}).join('');
 }
 
 function selectVehicle(vehicleId) {
@@ -375,6 +383,96 @@ function formatDate(dateString) {
         hour: '2-digit',
         minute: '2-digit'
     });
+}
+
+// ====== EDICIÓN DE VEHÍCULO ======
+
+function openEditModal(vehicleId) {
+    const vehicle = vehicles.find(v => v.id === vehicleId);
+    if (!vehicle) return;
+
+    document.getElementById('editVehicleId').value = vehicle.id;
+    document.getElementById('editPlate').value = vehicle.plate;
+    document.getElementById('editPhone').value = vehicle.phone;
+    document.getElementById('editModal').style.display = 'flex';
+}
+
+function closeEditModal() {
+    document.getElementById('editModal').style.display = 'none';
+}
+
+// Cerrar modal al hacer click fuera
+document.addEventListener('click', (e) => {
+    if (e.target.id === 'editModal') closeEditModal();
+});
+
+// Cerrar modal con Escape
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeEditModal();
+});
+
+// Submit del formulario de edición
+document.getElementById('editForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const vehicleId = document.getElementById('editVehicleId').value;
+    const plate = normalizePlate(document.getElementById('editPlate').value);
+    const rawPhone = document.getElementById('editPhone').value;
+    const phoneResult = normalizeSpanishPhone(rawPhone);
+
+    if (!plate && !rawPhone) {
+        showMessage('Debes completar al menos un campo.', 'error');
+        return;
+    }
+
+    if (plate && (plate.length < 3 || plate.length > 15)) {
+        showMessage('La matrícula debe tener entre 3 y 15 caracteres.', 'error');
+        return;
+    }
+
+    if (rawPhone && !phoneResult.valid) {
+        showMessage('El teléfono debe ser válido en España (9 dígitos).', 'error');
+        return;
+    }
+
+    const body = {};
+    if (plate) body.plate = plate;
+    if (rawPhone && phoneResult.valid) body.phone = phoneResult.formatted;
+
+    try {
+        const response = await fetch(`/vehicles/${vehicleId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            closeEditModal();
+            showMessage('Datos actualizados correctamente.', 'success', 3000);
+            await loadVehicles();
+        } else {
+            showMessage(result.message || 'Error al guardar cambios.', 'error');
+        }
+    } catch (error) {
+        showMessage('Error de conexión. Intenta nuevamente.', 'error');
+    }
+});
+
+// Formateo en tiempo real en el modal de edición
+document.getElementById('editPlate').addEventListener('input', (e) => {
+    e.target.value = normalizePlate(e.target.value);
+});
+
+document.getElementById('editPhone').addEventListener('input', (e) => {
+    e.target.value = formatSpanishPhoneInput(e.target.value);
+});
+
+// ====== SEGUIMIENTO PÚBLICO ======
+
+function openTracking(url) {
+    window.open(url, '_blank');
 }
 
 setInterval(() => {

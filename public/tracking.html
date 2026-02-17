@@ -420,7 +420,7 @@
                 return `
                     <div class="timeline-item">
                         <div class="timeline-dot" ${isLast ? 'style="background: var(--primary);"' : ''}></div>
-                        <div class="timeline-date">${formatDate(log.created_at)}</div>
+                        <div class="timeline-date">${formatDateTime(log.created_at)}</div>
                         <div class="timeline-status">
                             <span class="timeline-icon">${logStatus.icon}</span>
                             ${logStatus.label}

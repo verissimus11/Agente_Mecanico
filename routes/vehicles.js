@@ -42,6 +42,9 @@ router.post('/', VehicleController.create);
 // GET /vehicles - Listar vehículos activos
 router.get('/', VehicleController.list);
 
+// PATCH /vehicles/:id - Editar datos del vehículo
+router.patch('/:id', VehicleController.editVehicle);
+
 // PATCH /vehicles/:id/status - Actualizar status
 router.patch('/:id/status', VehicleController.updateStatus);
 
