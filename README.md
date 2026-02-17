@@ -1,220 +1,219 @@
-# TallerFlow - Sistema de Control Vehicular
+# TallerFlow - Sistema de Control Vehicular Multi-Taller
 
-**Versión:** v0.1.2 - Fase A  
+**Versión:** v0.3.0  
 **Autor:** Grupo Lance  
 
 ## Descripción
 
-Sistema de control vehicular para talleres mecánicos. Permite registrar vehículos, actualizar estados y generar mensajes deterministas basados en datos reales.
+Sistema de control vehicular centralizado para talleres mecánicos. Permite registrar vehículos, actualizar estados, generar historial tipo "seguimiento de paquete" y ofrecer URLs públicas de consulta para clientes.
 
-Esta es la **Fase A** - Infraestructura mínima funcional. No incluye IA generativa ni optimizaciones avanzadas.
+Arquitectura **multi-tenant**: un solo backend, una sola base de datos, separación lógica por `workshop_id`. Cada taller tiene su propio slug para URLs públicas.
 
-## Objetivos de la Fase A
+## Novedades v0.3.0
 
-✅ Registrar un vehículo en menos de 10 segundos  
-✅ Actualizar el estado en menos de 2 segundos  
-✅ Consultar estado por matrícula o teléfono  
-✅ Generar mensaje determinista basado en datos reales  
+- **Multi-taller**: Tabla `workshops` con slug único para identificar cada taller
+- **Historial de estados**: Tabla `vehicle_logs` — cada cambio de estado genera un registro automático
+- **Seguimiento público**: Endpoint `GET /api/public/:slug/status/:plate` sin datos sensibles
+- **Página pública**: `/:slug/status/:plate` con diseño responsive y timeline visual
+- **Separación lógica**: Todas las consultas filtran por `workshop_id`
+- **Taller por defecto**: Se crea automáticamente "Taller Demo" al iniciar si no existe
 
-## Novedades v0.1.2
+## Arquitectura
 
-- Búsqueda en tiempo real por matrícula sobre vehículos activos
-- Selección de vehículo haciendo click en la fila (sin botón extra)
-- Validación y normalización de teléfono para España (`+34`)
-- Mejora visual de badges de estado con iconos
-- Mensajería operativa más clara para actualización de estado
+```
+┌─────────────────────────────────────────────┐
+│              TallerFlow (Cloud)              │
+│                                              │
+│  Express Server ──► SQLite/PostgreSQL        │
+│                                              │
+│  /vehicles          → API admin (por taller) │
+│  /workshops         → CRUD talleres          │
+│  /api/public/:slug  → API pública            │
+│  /:slug/status/:p   → Página seguimiento     │
+└─────────────────────────────────────────────┘
+```
+
+**Multi-tenant simple**: Sin aislamiento físico, solo separación lógica por `workshop_id`.
 
 ## Stack Tecnológico
 
 - **Backend:** Node.js + Express
-- **Base de datos:** SQLite (compatible con PostgreSQL/Supabase)
-- **Frontend:** HTML puro + CSS responsive + JavaScript vanilla
-- **ORM:** sqlite3 driver
+- **Base de datos:** SQLite (desarrollo) / PostgreSQL (producción)
+- **Frontend:** HTML + CSS responsive + JavaScript vanilla
+- **Arquitectura:** Multi-tenant lógico
 
 ## Instalación
 
 ### Requisitos Previos
 
 - Node.js >= 16.0.0
-- npm o yarn
-- (No requiere PostgreSQL - usa SQLite local)
+- npm
 
-### Pasos de Instalación
-
-1. **Clonar/Descargar el proyecto**
-   ```bash
-   cd Agente_Mecanico
-   ```
-
-2. **Instalar dependencias**
-   ```bash
-   npm install
-   ```
-
-3. **Iniciar servidor**
-   ```bash
-   npm start
-   ```
-   (La base de datos SQLite se creará automáticamente)
-
-4. **Acceder a la aplicación**
-   ```
-   http://localhost:3000
-   ```
-
-## Uso del Sistema
-
-### Registro de Vehículos
-
-1. Completar formulario con matrícula y teléfono
-2. Click en "Registrar Vehículo"
-3. El estado inicial será "En Revisión"
-
-### Actualización de Estados
-
-1. Seleccionar vehículo haciendo click en una fila de la tabla
-2. Usar botones de estado:
-   - **En Revisión** - Vehículo en proceso de diagnóstico
-   - **Esperando Pieza** - Aguardando repuestos
-   - **Presupuesto Pendiente** - Esperando aprobación del cliente
-   - **Listo** - Vehículo terminado
-
-### Consultas
-
-- **Por matrícula:** `GET /vehicles/by-plate/:plate`
-- **Por teléfono:** `GET /vehicles/by-phone/:phone`
-- **Por ID:** `GET /vehicles/:id`
-
-## Endpoints API
-
-| Método | Endpoint | Descripción |
-|--------|----------|-------------|
-| POST | `/vehicles` | Crear nuevo vehículo |
-| GET | `/vehicles?active=true` | Listar vehículos activos |
-| PATCH | `/vehicles/:id/status` | Actualizar estado |
-| GET | `/vehicles/by-phone/:phone` | Buscar por teléfono |
-| GET | `/vehicles/by-plate/:plate` | Buscar por matrícula |
-| GET | `/vehicles/:id` | Buscar por ID |
-
-### Ejemplo de Uso API
+### Pasos
 
 ```bash
-# Crear vehículo
-curl -X POST http://localhost:3000/vehicles \
-  -H "Content-Type: application/json" \
-   -d '{\"plate\":\"ABC123\",\"phone\":\"+34 612 345 678\"}'
-
-# Actualizar estado
-curl -X PATCH http://localhost:3000/vehicles/{id}/status \
-  -H "Content-Type: application/json" \
-  -d '{\"status\":\"LISTO\"}'
-
-# Consultar por matrícula
-curl http://localhost:3000/vehicles/by-plate/ABC123
+cd Agente_Mecanico
+npm install
+npm start
 ```
 
-## Estructura del Proyecto
+La base de datos y el taller por defecto se crean automáticamente.
 
-```
-Agente_Mecanico/
-├── server.js              # Servidor principal Express
-├── package.json           # Dependencias y scripts
-├── .env.example          # Template de configuración
-├── README.md             # Esta documentación
-├── CHANGELOG.md          # Historial de cambios
-├── routes/
-│   └── vehicles.js       # Rutas de vehículos
-├── controllers/
-│   └── vehicleController.js # Lógica de negocio
-├── models/
-│   └── Vehicle.js        # Modelo de datos + función determinista
-├── db/
-│   ├── sqlite-connection.js  # Conexión SQLite
-│   ├── connection.js         # Conexión PostgreSQL (legacy)
-│   └── schema.sql           # Script de creación (PostgreSQL)
-└── public/
-    ├── index.html        # Frontend HTML
-    ├── styles.css        # CSS responsive
-    └── app.js            # JavaScript vanilla
-```
+Acceder a: `http://localhost:3000`
 
 ## Modelo de Datos
+
+### Tabla: workshops
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| id | UUID | Identificador único (PK) |
+| name | TEXT | Nombre del taller |
+| slug | TEXT | Slug URL único (ej: `taller-martinez`) |
+| active | BOOLEAN | Taller activo/inactivo |
+| created_at | DATETIME | Fecha de creación |
 
 ### Tabla: vehicles
 
 | Campo | Tipo | Descripción |
 |-------|------|-------------|
 | id | UUID | Identificador único (PK) |
-| plate | VARCHAR(20) | Matrícula del vehículo |
-| phone | VARCHAR(20) | Teléfono del cliente |
+| workshop_id | UUID | FK → workshops.id |
+| plate | TEXT | Matrícula del vehículo |
+| phone | TEXT | Teléfono del cliente |
 | status | ENUM | Estado actual |
 | last_event | TEXT | Último evento registrado |
-| updated_at | TIMESTAMP | Fecha de última actualización |
+| updated_at | DATETIME | Última actualización |
 | active | BOOLEAN | Vehículo activo/inactivo |
+
+### Tabla: vehicle_logs
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| id | UUID | Identificador único (PK) |
+| vehicle_id | UUID | FK → vehicles.id |
+| status | TEXT | Estado en ese momento |
+| note | TEXT | Nota opcional |
+| created_at | DATETIME | Fecha del evento |
 
 ### Estados Permitidos
 
-- `EN_REVISION` - En revisión
-- `ESPERANDO_PIEZA` - Esperando pieza  
-- `PRESUPUESTO_PENDIENTE` - Presupuesto pendiente
-- `LISTO` - Listo
+| Estado | Descripción |
+|--------|-------------|
+| `EN_REVISION` | 🛠 En revisión |
+| `ESPERANDO_PIEZA` | 📦 Esperando pieza |
+| `PRESUPUESTO_PENDIENTE` | 📄 Presupuesto pendiente |
+| `LISTO` | ✅ Listo para recoger |
 
-## Mensaje Determinista
+## Endpoints API
 
-La función `generateStatusMessage()` devuelve:
+### Talleres
+
+| Método | Endpoint | Descripción |
+|--------|----------|-------------|
+| GET | `/workshops` | Listar talleres activos |
+| POST | `/workshops` | Crear nuevo taller |
+| GET | `/workshops/:slug` | Obtener taller por slug |
+
+### Vehículos (Admin)
+
+| Método | Endpoint | Descripción |
+|--------|----------|-------------|
+| POST | `/vehicles` | Crear vehículo |
+| GET | `/vehicles` | Listar vehículos activos del taller |
+| PATCH | `/vehicles/:id/status` | Actualizar estado + generar log |
+| GET | `/vehicles/by-phone/:phone` | Buscar por teléfono |
+| GET | `/vehicles/by-plate/:plate` | Buscar por matrícula |
+| GET | `/vehicles/:id` | Buscar por ID (incluye historial) |
+
+> Los endpoints de vehículos usan el header `X-Workshop-Slug` o query `?workshop=slug` para contexto de taller. Si no se envía, usa el taller por defecto.
+
+### Público (Sin autenticación)
+
+| Método | Endpoint | Descripción |
+|--------|----------|-------------|
+| GET | `/api/public/:slug/status/:plate` | Consultar estado + historial |
+
+**Respuesta pública** (sin datos sensibles):
+```json
+{
+  "workshop": { "name": "Taller Martínez", "slug": "taller-martinez" },
+  "vehicle": { "plate": "ABC123", "status": "EN_REVISION", "updated_at": "..." },
+  "logs": [
+    { "status": "EN_REVISION", "note": "Vehículo recibido", "created_at": "..." }
+  ]
+}
+```
+
+### Página de Seguimiento Público
 
 ```
-"Tu vehículo con matrícula {plate} está actualmente en estado {status}. Última actualización: {updated_at}. Te avisaremos cuando haya cambios."
+http://localhost:3000/{slug}/status/{plate}
 ```
 
-**Características:**
-- Sin variación en el mensaje
-- Sin IA generativa
-- Basado únicamente en datos reales
-- Formato consistente en español
+Ejemplos:
+- `http://localhost:3000/taller-martinez/status/ABC123`
+- `http://localhost:3000/autoexpress/status/5678DEF`
 
-## Scripts Disponibles
+Muestra: nombre del taller, matrícula, estado actual, última actualización, y timeline con historial completo tipo seguimiento de paquete.
+
+## Estructura del Proyecto
+
+```
+Agente_Mecanico/
+├── server.js                    # Servidor Express principal
+├── package.json                 # Dependencias y scripts
+├── README.md                    # Documentación
+├── CHANGELOG.md                 # Historial de cambios
+├── routes/
+│   ├── vehicles.js              # Rutas admin de vehículos
+│   ├── workshops.js             # Rutas CRUD talleres
+│   └── public.js                # Rutas públicas de seguimiento
+├── controllers/
+│   ├── vehicleController.js     # Lógica admin de vehículos
+│   └── publicController.js      # Lógica de consulta pública
+├── models/
+│   ├── Vehicle.js               # Modelo vehículos (multi-tenant)
+│   ├── Workshop.js              # Modelo talleres
+│   └── VehicleLog.js            # Modelo historial de estados
+├── db/
+│   └── sqlite-connection.js     # Conexión SQLite + esquema 3 tablas
+└── public/
+    ├── index.html               # Frontend admin
+    ├── tracking.html            # Página pública de seguimiento
+    ├── styles.css               # CSS responsive
+    └── app.js                   # JavaScript admin
+```
+
+## Seguridad
+
+- Sanitización de slug y plate en endpoint público
+- Validación de longitud de inputs
+- Sin exposición de IDs internos, teléfonos ni stack traces en respuestas públicas
+- Queries parametrizadas (sin concatenación SQL)
+- Foreign keys habilitadas en SQLite
+
+## Scripts
 
 ```bash
-npm start      # Iniciar servidor de producción
-npm run dev    # Iniciar servidor de desarrollo (alias de start)
+npm start      # Iniciar servidor
+npm run dev    # Alias de start
 ```
-
-## Compatibilidad
-
-- **Navegadores:** Chrome, Firefox, Safari, Edge (versiones modernas)
-- **Dispositivos:** Responsive design para móvil y escritorio
-- **Base de datos:** SQLite (desarrollo), PostgreSQL/Supabase (producción)
-
-## Características Técnicas
-
-### Performance
-- Registro de vehículo: < 10 segundos
-- Actualización de estado: < 2 segundos
-- Índices en campos de búsqueda frecuente
-
-### Seguridad
-- Validación básica de datos
-- Sanitización de entradas
-- Manejo de errores robusto
-
-### Frontend
-- Sin frameworks pesados
-- JavaScript vanilla optimizado
-- CSS responsive mobile-first
-- Actualización automática cada 30 segundos
 
 ## Próximas Fases
 
-**Fase B:** Integración WhatsApp  
-**Fase C:** Capa inteligente con IA
+- **Fase B:** Integración WhatsApp
+- **Fase C:** Capa inteligente con IA
+- Autenticación por taller
+- QR dinámicos para seguimiento
+- Dashboard de métricas por taller
 
 ## Soporte
 
 **Desarrollado por:** Grupo Lance  
-**Versión:** v0.1.2  
+**Versión:** v0.3.0  
 **Fecha:** 2026
 
 ---
 
-*Sistema funcional mínimo para validación en taller real antes de integrar funcionalidades avanzadas.*
+*Arquitectura multi-tenant lista para escalar sin migraciones dolorosas.*

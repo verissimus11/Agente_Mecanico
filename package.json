@@ -1,7 +1,7 @@
 {
   "name": "taller-control-vehicular",
-  "version": "0.1.2",
-  "description": "Sistema de control vehicular para talleres mecánicos - Fase A",
+  "version": "0.3.0",
+  "description": "Sistema de control vehicular multi-taller con seguimiento público - TallerFlow",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

@@ -1,4 +1,6 @@
 const Vehicle = require('../models/Vehicle');
+const VehicleLog = require('../models/VehicleLog');
+const Workshop = require('../models/Workshop');
 
 class VehicleController {
   static normalizeSpanishPhone(phone) {
@@ -25,6 +27,14 @@ class VehicleController {
   static async create(req, res) {
     try {
       const { plate, phone } = req.body;
+      const workshopId = req.workshopId;
+
+      if (!workshopId) {
+        return res.status(400).json({
+          error: 'MISSING_WORKSHOP',
+          message: 'Contexto de taller no disponible'
+        });
+      }
 
       // Validación básica
       if (!plate || !phone) {
@@ -34,10 +44,9 @@ class VehicleController {
         });
       }
 
-      // Normalizar matrícula: mayúsculas y sin espacios
+      // Normalizar matrícula
       const normalizedPlate = plate.trim().toUpperCase().replace(/\s+/g, '');
 
-      // Validar formato de matrícula (básico)
       if (normalizedPlate.length < 3 || normalizedPlate.length > 15) {
         return res.status(400).json({
           error: 'INVALID_PLATE',
@@ -45,7 +54,7 @@ class VehicleController {
         });
       }
 
-      const normalizedPhone = this.normalizeSpanishPhone(phone);
+      const normalizedPhone = VehicleController.normalizeSpanishPhone(phone);
       if (!normalizedPhone) {
         return res.status(400).json({
           error: 'INVALID_PHONE',
@@ -53,8 +62,8 @@ class VehicleController {
         });
       }
 
-      // Verificar duplicados activos
-      const existingVehicle = await Vehicle.findByPlate(normalizedPlate);
+      // Verificar duplicados activos (dentro del mismo taller)
+      const existingVehicle = await Vehicle.findByPlate(workshopId, normalizedPlate);
       if (existingVehicle) {
         return res.status(409).json({
           error: 'VEHICLE_ALREADY_ACTIVE',
@@ -62,10 +71,12 @@ class VehicleController {
         });
       }
 
-      const vehicle = await Vehicle.create(normalizedPlate, normalizedPhone);
+      const vehicle = await Vehicle.create(workshopId, normalizedPlate, normalizedPhone);
+
+      // Crear log inicial
+      await VehicleLog.create(vehicle.id, Vehicle.STATUSES.EN_REVISION, 'Vehículo recibido');
       
-      // Logging mínimo
-      console.log(`✅ Vehículo creado: ${vehicle.plate} - ${vehicle.phone}`);
+      console.log(`✅ Vehículo creado: ${vehicle.plate} - ${vehicle.phone} (taller: ${workshopId})`);
       
       res.status(201).json({
         success: true,
@@ -82,10 +93,11 @@ class VehicleController {
     }
   }
 
-  // GET /vehicles?active=true - Listar vehículos activos
+  // GET /vehicles - Listar vehículos activos del taller
   static async list(req, res) {
     try {
-      const vehicles = await Vehicle.getActive();
+      const workshopId = req.workshopId;
+      const vehicles = await Vehicle.getActive(workshopId);
       
       res.json({
         success: true,
@@ -102,11 +114,12 @@ class VehicleController {
     }
   }
 
-  // PATCH /vehicles/:id/status - Actualizar status
+  // PATCH /vehicles/:id/status - Actualizar status + crear log
   static async updateStatus(req, res) {
     try {
       const { id } = req.params;
       const { status, last_event } = req.body;
+      const workshopId = req.workshopId;
 
       // Validar que el status sea válido
       if (!Object.values(Vehicle.STATUSES).includes(status)) {
@@ -117,7 +130,7 @@ class VehicleController {
         });
       }
 
-      const vehicle = await Vehicle.updateStatus(id, status, last_event);
+      const vehicle = await Vehicle.updateStatus(id, workshopId, status, last_event);
 
       if (!vehicle) {
         return res.status(404).json({
@@ -126,7 +139,10 @@ class VehicleController {
         });
       }
 
-      // Logging mínimo
+      // Crear log de cambio de estado (ATÓMICO con la actualización)
+      const note = last_event || `Estado cambiado a ${Vehicle.STATUS_TRANSLATIONS[status] || status}`;
+      await VehicleLog.create(vehicle.id, status, note);
+
       console.log(`🔄 Estado actualizado: ${vehicle.plate} → ${status}`);
 
       res.json({
@@ -145,10 +161,11 @@ class VehicleController {
     }
   }
 
-  // GET /vehicles/by-phone/:phone - Buscar por teléfono
+  // GET /vehicles/by-phone/:phone
   static async findByPhone(req, res) {
     try {
-      const normalizedPhone = this.normalizeSpanishPhone(req.params.phone);
+      const workshopId = req.workshopId;
+      const normalizedPhone = VehicleController.normalizeSpanishPhone(req.params.phone);
       if (!normalizedPhone) {
         return res.status(400).json({
           error: 'INVALID_PHONE',
@@ -156,7 +173,7 @@ class VehicleController {
         });
       }
 
-      const vehicle = await Vehicle.findByPhone(normalizedPhone);
+      const vehicle = await Vehicle.findByPhone(workshopId, normalizedPhone);
 
       if (!vehicle) {
         return res.status(404).json({
@@ -180,11 +197,12 @@ class VehicleController {
     }
   }
 
-  // GET /vehicles/by-plate/:plate - Buscar por matrícula
+  // GET /vehicles/by-plate/:plate
   static async findByPlate(req, res) {
     try {
+      const workshopId = req.workshopId;
       const { plate } = req.params;
-      const vehicle = await Vehicle.findByPlate(plate);
+      const vehicle = await Vehicle.findByPlate(workshopId, plate);
 
       if (!vehicle) {
         return res.status(404).json({
@@ -208,11 +226,12 @@ class VehicleController {
     }
   }
 
-  // GET /vehicles/:id - Buscar por ID
+  // GET /vehicles/:id
   static async findById(req, res) {
     try {
+      const workshopId = req.workshopId;
       const { id } = req.params;
-      const vehicle = await Vehicle.findById(id);
+      const vehicle = await Vehicle.findById(id, workshopId);
 
       if (!vehicle) {
         return res.status(404).json({
@@ -221,9 +240,12 @@ class VehicleController {
         });
       }
 
+      // Incluir historial
+      const logs = await VehicleLog.findByVehicleId(vehicle.id);
+
       res.json({
         success: true,
-        data: vehicle,
+        data: { ...vehicle, logs },
         message: Vehicle.generateStatusMessage(vehicle)
       });
 

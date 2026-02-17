@@ -80,6 +80,14 @@ body {
     font-weight: 400;
 }
 
+.workshop-label {
+    font-size: 0.95rem;
+    opacity: 0.9;
+    margin-top: 0.5rem;
+    font-weight: 500;
+    letter-spacing: 0.025em;
+}
+
 /* Main content */
 .main {
     padding: 2rem 0;

@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estado del Vehículo - TallerFlow</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --primary: #4f46e5;
+            --primary-dark: #4338ca;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --green-50: #f0fdf4;
+            --green-600: #16a34a;
+            --green-700: #166534;
+            --orange-50: #fff7ed;
+            --orange-600: #ea580c;
+            --blue-50: #eff6ff;
+            --blue-600: #2563eb;
+            --radius: 12px;
+            --radius-sm: 8px;
+            --shadow: 0 1px 3px rgb(0 0 0 / 0.1);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--gray-50);
+            color: var(--gray-900);
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .container {
+            max-width: 640px;
+            margin: 0 auto;
+            padding: 0 1rem;
+            width: 100%;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            padding: 2rem 0;
+            text-align: center;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .workshop-name {
+            font-size: 1.75rem;
+            font-weight: 700;
+            letter-spacing: -0.025em;
+            margin-bottom: 0.25rem;
+        }
+
+        .header-subtitle {
+            font-size: 0.875rem;
+            opacity: 0.85;
+            font-weight: 300;
+        }
+
+        /* Main content */
+        .main {
+            flex: 1;
+            padding: 2rem 0;
+        }
+
+        /* Vehicle card */
+        .vehicle-card {
+            background: white;
+            border-radius: var(--radius);
+            padding: 2rem;
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--gray-200);
+            margin-bottom: 1.5rem;
+        }
+
+        .plate-display {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--gray-900);
+            letter-spacing: 0.05em;
+            text-align: center;
+            margin-bottom: 1rem;
+            padding: 0.75rem;
+            background: var(--gray-50);
+            border-radius: var(--radius-sm);
+            border: 2px dashed var(--gray-300);
+        }
+
+        .status-current {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.25rem;
+            border-radius: 9999px;
+            font-weight: 600;
+            font-size: 1rem;
+            margin-bottom: 0.75rem;
+            border: 1.5px solid;
+        }
+
+        .status-EN_REVISION {
+            background: var(--gray-50);
+            color: var(--gray-600);
+            border-color: var(--gray-300);
+        }
+        .status-ESPERANDO_PIEZA {
+            background: var(--orange-50);
+            color: var(--orange-600);
+            border-color: #fed7aa;
+        }
+        .status-PRESUPUESTO_PENDIENTE {
+            background: var(--blue-50);
+            color: var(--blue-600);
+            border-color: #bfdbfe;
+        }
+        .status-LISTO {
+            background: var(--green-50);
+            color: var(--green-600);
+            border-color: #bbf7d0;
+        }
+
+        .updated-at {
+            text-align: center;
+            color: var(--gray-500);
+            font-size: 0.875rem;
+        }
+
+        /* Timeline */
+        .timeline-card {
+            background: white;
+            border-radius: var(--radius);
+            padding: 2rem;
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--gray-200);
+        }
+
+        .timeline-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--gray-800);
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 2px solid var(--primary);
+        }
+
+        .timeline {
+            position: relative;
+            padding-left: 2rem;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 0.6rem;
+            top: 0.5rem;
+            bottom: 0.5rem;
+            width: 2px;
+            background: var(--gray-200);
+        }
+
+        .timeline-item {
+            position: relative;
+            padding-bottom: 1.5rem;
+        }
+
+        .timeline-item:last-child {
+            padding-bottom: 0;
+        }
+
+        .timeline-dot {
+            position: absolute;
+            left: -1.65rem;
+            top: 0.25rem;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 2px solid var(--primary);
+            background: white;
+        }
+
+        .timeline-item:last-child .timeline-dot {
+            background: var(--primary);
+        }
+
+        .timeline-date {
+            font-size: 0.8rem;
+            color: var(--gray-400);
+            margin-bottom: 0.125rem;
+        }
+
+        .timeline-status {
+            font-weight: 500;
+            color: var(--gray-800);
+            font-size: 0.95rem;
+        }
+
+        .timeline-note {
+            font-size: 0.85rem;
+            color: var(--gray-500);
+            margin-top: 0.125rem;
+        }
+
+        .timeline-icon {
+            margin-right: 0.25rem;
+        }
+
+        /* Error / Not found */
+        .not-found {
+            text-align: center;
+            padding: 3rem 1rem;
+        }
+
+        .not-found-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .not-found h2 {
+            font-size: 1.25rem;
+            color: var(--gray-700);
+            margin-bottom: 0.5rem;
+        }
+
+        .not-found p {
+            color: var(--gray-500);
+            font-size: 0.95rem;
+        }
+
+        /* Loading */
+        .loading-container {
+            text-align: center;
+            padding: 4rem 1rem;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid var(--gray-200);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .loading-text {
+            margin-top: 1rem;
+            color: var(--gray-500);
+        }
+
+        /* Footer */
+        .footer {
+            background: var(--gray-800);
+            color: white;
+            text-align: center;
+            padding: 1.5rem 0;
+            margin-top: auto;
+        }
+
+        .footer p {
+            font-size: 0.8rem;
+            opacity: 0.7;
+        }
+
+        .footer a {
+            color: white;
+            text-decoration: none;
+            opacity: 0.85;
+        }
+
+        /* Responsive */
+        @media (max-width: 480px) {
+            .workshop-name { font-size: 1.35rem; }
+            .plate-display { font-size: 1.5rem; }
+            .vehicle-card, .timeline-card { padding: 1.25rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <header class="header">
+        <div class="container">
+            <h1 class="workshop-name" id="workshopName">Cargando...</h1>
+            <p class="header-subtitle">Seguimiento de vehículo</p>
+        </div>
+    </header>
+
+    <main class="main">
+        <div class="container">
+            <!-- Loading -->
+            <div id="loadingState" class="loading-container">
+                <div class="spinner"></div>
+                <p class="loading-text">Consultando estado del vehículo...</p>
+            </div>
+
+            <!-- Vehicle info (hidden until loaded) -->
+            <div id="vehicleState" style="display: none;">
+                <div class="vehicle-card">
+                    <div class="plate-display" id="vehiclePlate"></div>
+                    <div class="status-current" id="vehicleStatus"></div>
+                    <p class="updated-at" id="vehicleUpdated"></p>
+                </div>
+
+                <div class="timeline-card">
+                    <h2 class="timeline-title">📋 Historial de seguimiento</h2>
+                    <div class="timeline" id="timelineContainer"></div>
+                </div>
+            </div>
+
+            <!-- Not found (hidden until needed) -->
+            <div id="notFoundState" style="display: none;" class="not-found">
+                <div class="not-found-icon">🔍</div>
+                <h2 id="notFoundTitle">Vehículo no encontrado</h2>
+                <p id="notFoundMessage">No se encontró un vehículo activo con esa matrícula.</p>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>Powered by <strong>TallerFlow</strong> · Grupo Lance</p>
+        </div>
+    </footer>
+
+    <script>
+        const STATUS_DISPLAY = {
+            EN_REVISION: { label: 'En revisión', icon: '🛠' },
+            ESPERANDO_PIEZA: { label: 'Esperando pieza', icon: '📦' },
+            PRESUPUESTO_PENDIENTE: { label: 'Presupuesto pendiente', icon: '📄' },
+            LISTO: { label: 'Listo para recoger', icon: '✅' }
+        };
+
+        // Extraer slug y plate de la URL
+        function parseUrl() {
+            const parts = window.location.pathname.split('/').filter(Boolean);
+            // Esperamos: /:slug/status/:plate
+            if (parts.length >= 3 && parts[1] === 'status') {
+                return { slug: parts[0], plate: parts[2] };
+            }
+            return null;
+        }
+
+        function formatDate(dateString) {
+            const d = new Date(dateString);
+            return d.toLocaleDateString('es-ES', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric'
+            });
+        }
+
+        function formatDateTime(dateString) {
+            const d = new Date(dateString);
+            return d.toLocaleString('es-ES', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function showNotFound(title, message) {
+            document.getElementById('loadingState').style.display = 'none';
+            document.getElementById('vehicleState').style.display = 'none';
+            document.getElementById('notFoundState').style.display = 'block';
+            document.getElementById('notFoundTitle').textContent = title || 'Vehículo no encontrado';
+            document.getElementById('notFoundMessage').textContent = message || 'No se encontró un vehículo activo con esa matrícula.';
+        }
+
+        function renderVehicle(data) {
+            document.getElementById('loadingState').style.display = 'none';
+            document.getElementById('vehicleState').style.display = 'block';
+
+            // Workshop name
+            document.getElementById('workshopName').textContent = data.workshop.name;
+            document.title = `${data.vehicle.plate} - ${data.workshop.name} | TallerFlow`;
+
+            // Vehicle info
+            document.getElementById('vehiclePlate').textContent = data.vehicle.plate;
+
+            const statusInfo = STATUS_DISPLAY[data.vehicle.status] || { label: data.vehicle.status, icon: '❓' };
+            const statusEl = document.getElementById('vehicleStatus');
+            statusEl.innerHTML = `<span>${statusInfo.icon}</span> ${statusInfo.label}`;
+            statusEl.className = `status-current status-${data.vehicle.status}`;
+
+            document.getElementById('vehicleUpdated').textContent = `Última actualización: ${formatDateTime(data.vehicle.updated_at)}`;
+
+            // Timeline
+            const timelineContainer = document.getElementById('timelineContainer');
+
+            if (!data.logs || data.logs.length === 0) {
+                timelineContainer.innerHTML = '<p style="color: #9ca3af; text-align: center;">Sin historial disponible</p>';
+                return;
+            }
+
+            timelineContainer.innerHTML = data.logs.map((log, index) => {
+                const logStatus = STATUS_DISPLAY[log.status] || { label: log.status, icon: '📌' };
+                const isLast = index === data.logs.length - 1;
+                return `
+                    <div class="timeline-item">
+                        <div class="timeline-dot" ${isLast ? 'style="background: var(--primary);"' : ''}></div>
+                        <div class="timeline-date">${formatDate(log.created_at)}</div>
+                        <div class="timeline-status">
+                            <span class="timeline-icon">${logStatus.icon}</span>
+                            ${logStatus.label}
+                        </div>
+                        ${log.note ? `<div class="timeline-note">${escapeHtml(log.note)}</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        async function loadTracking() {
+            const params = parseUrl();
+
+            if (!params) {
+                showNotFound('URL inválida', 'La dirección no tiene el formato correcto.');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/public/${encodeURIComponent(params.slug)}/status/${encodeURIComponent(params.plate)}`);
+                const result = await response.json();
+
+                if (!response.ok) {
+                    if (result.error === 'WORKSHOP_NOT_FOUND') {
+                        showNotFound('Taller no encontrado', 'El taller indicado no existe en nuestro sistema.');
+                    } else {
+                        showNotFound(undefined, result.message || 'No se encontró un vehículo activo con esa matrícula.');
+                    }
+                    return;
+                }
+
+                renderVehicle(result);
+
+            } catch (error) {
+                showNotFound('Error de conexión', 'No se pudo consultar el estado. Intenta más tarde.');
+            }
+        }
+
+        // Iniciar carga
+        document.addEventListener('DOMContentLoaded', loadTracking);
+    </script>
+</body>
+</html>

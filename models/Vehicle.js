@@ -10,18 +10,19 @@ class Vehicle {
     LISTO: 'LISTO'
   };
 
+  // Traducciones de estados
+  static STATUS_TRANSLATIONS = {
+    'EN_REVISION': 'En revisión',
+    'ESPERANDO_PIEZA': 'Esperando pieza',
+    'PRESUPUESTO_PENDIENTE': 'Presupuesto pendiente',
+    'LISTO': 'Listo'
+  };
+
   // Función determinista para generar mensaje de estado
   static generateStatusMessage(vehicle) {
     if (!vehicle) return '';
     
-    const statusTranslations = {
-      'EN_REVISION': 'En revisión',
-      'ESPERANDO_PIEZA': 'Esperando pieza',
-      'PRESUPUESTO_PENDIENTE': 'Presupuesto pendiente',
-      'LISTO': 'Listo'
-    };
-
-    const statusText = statusTranslations[vehicle.status] || vehicle.status;
+    const statusText = Vehicle.STATUS_TRANSLATIONS[vehicle.status] || vehicle.status;
     
     // Formatear fecha en español legible
     const updatedAt = new Date(vehicle.updated_at).toLocaleString('es-ES', {
@@ -36,88 +37,91 @@ class Vehicle {
     return `Tu vehículo con matrícula ${vehicle.plate} está actualmente en estado ${statusText}. Última actualización: ${updatedAt}. Te avisaremos cuando haya cambios.`;
   }
 
-  // Crear nuevo vehículo
-  static async create(plate, phone) {
+  // Crear nuevo vehículo (requiere workshop_id)
+  static async create(workshopId, plate, phone) {
     const id = uuidv4();
     const normalizedPlate = plate.trim().toUpperCase().replace(/\s+/g, '');
     
     const query = `
-      INSERT INTO vehicles (id, plate, phone, status, active)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO vehicles (id, workshop_id, plate, phone, status, active)
+      VALUES (?, ?, ?, ?, ?, ?)
     `;
     
-    const values = [id, normalizedPlate, phone, this.STATUSES.EN_REVISION, 1];
+    const values = [id, workshopId, normalizedPlate, phone, this.STATUSES.EN_REVISION, 1];
     await runQuery(query, values);
     
-    // Obtener el registro creado
     const created = await getQuery('SELECT * FROM vehicles WHERE id = ?', [id]);
     return created;
   }
 
-  // Obtener vehículos activos
-  static async getActive() {
+  // Obtener vehículos activos de un taller
+  static async getActive(workshopId) {
     const query = `
       SELECT * FROM vehicles 
-      WHERE active = 1 
+      WHERE workshop_id = ? AND active = 1 
       ORDER BY updated_at DESC
     `;
-    
-    const result = await allQuery(query);
-    return result;
+    return await allQuery(query, [workshopId]);
   }
 
-  // Actualizar status del vehículo
-  static async updateStatus(id, status, lastEvent = null) {
+  // Actualizar status del vehículo (filtrado por workshop_id)
+  static async updateStatus(id, workshopId, status, lastEvent = null) {
     const query = `
       UPDATE vehicles 
       SET status = ?, last_event = ?, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ? AND active = 1
+      WHERE id = ? AND workshop_id = ? AND active = 1
     `;
     
-    const values = [status, lastEvent, id];
+    const values = [status, lastEvent, id, workshopId];
     await runQuery(query, values);
     
-    // Obtener el registro actualizado
-    const updated = await getQuery('SELECT * FROM vehicles WHERE id = ?', [id]);
+    const updated = await getQuery('SELECT * FROM vehicles WHERE id = ? AND workshop_id = ?', [id, workshopId]);
     return updated;
   }
 
-  // Buscar por teléfono
-  static async findByPhone(phone) {
+  // Buscar por teléfono (filtrado por workshop_id)
+  static async findByPhone(workshopId, phone) {
     const query = `
       SELECT * FROM vehicles 
-      WHERE phone = ? AND active = 1
+      WHERE workshop_id = ? AND phone = ? AND active = 1
       ORDER BY updated_at DESC
       LIMIT 1
     `;
-    
-    const result = await getQuery(query, [phone]);
-    return result;
+    return await getQuery(query, [workshopId, phone]);
   }
 
-  // Buscar por matrícula
-  static async findByPlate(plate) {
+  // Buscar por matrícula (filtrado por workshop_id)
+  static async findByPlate(workshopId, plate) {
     const normalizedPlate = plate.trim().toUpperCase().replace(/\s+/g, '');
     const query = `
       SELECT * FROM vehicles 
-      WHERE plate = ? AND active = 1
+      WHERE workshop_id = ? AND plate = ? AND active = 1
       ORDER BY updated_at DESC
       LIMIT 1
     `;
-    
-    const result = await getQuery(query, [normalizedPlate]);
-    return result;
+    return await getQuery(query, [workshopId, normalizedPlate]);
   }
 
-  // Obtener por ID
-  static async findById(id) {
+  // Obtener por ID (filtrado por workshop_id)
+  static async findById(id, workshopId) {
     const query = `
       SELECT * FROM vehicles 
-      WHERE id = ? AND active = 1
+      WHERE id = ? AND workshop_id = ? AND active = 1
     `;
-    
-    const result = await getQuery(query, [id]);
-    return result;
+    return await getQuery(query, [id, workshopId]);
+  }
+
+  // Buscar por matrícula y workshop_id (para endpoint público)
+  static async findActiveByPlateAndWorkshop(workshopId, plate) {
+    const normalizedPlate = plate.trim().toUpperCase().replace(/\s+/g, '');
+    const query = `
+      SELECT id, plate, status, updated_at
+      FROM vehicles 
+      WHERE workshop_id = ? AND plate = ? AND active = 1
+      ORDER BY updated_at DESC
+      LIMIT 1
+    `;
+    return await getQuery(query, [workshopId, normalizedPlate]);
   }
 }
 

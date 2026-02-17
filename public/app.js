@@ -1,6 +1,7 @@
 // Variables globales
 let selectedVehicleId = null;
 let vehicles = [];
+let currentWorkshop = null;
 
 // Elementos del DOM
 const vehicleForm = document.getElementById('vehicleForm');
@@ -49,7 +50,24 @@ function initializeApp() {
     setupEventListeners();
     setStatusButtonsEnabled(false);
     updateSelectionState();
+    loadWorkshopInfo();
     loadVehicles();
+}
+
+async function loadWorkshopInfo() {
+    try {
+        const res = await fetch('/workshops');
+        const result = await res.json();
+        if (result.success && result.data && result.data.length > 0) {
+            currentWorkshop = result.data[0];
+            const label = document.getElementById('workshopLabel');
+            if (label) {
+                label.textContent = `🏭 ${currentWorkshop.name}`;
+            }
+        }
+    } catch (e) {
+        // Non-critical, silently ignore
+    }
 }
 
 function setupEventListeners() {
@@ -57,6 +75,10 @@ function setupEventListeners() {
 
     plateInput.addEventListener('input', () => {
         plateInput.value = normalizePlate(plateInput.value);
+    });
+
+    phoneInput.addEventListener('input', () => {
+        phoneInput.value = formatSpanishPhoneInput(phoneInput.value);
     });
 
     phoneInput.addEventListener('blur', () => {
@@ -101,6 +123,29 @@ function normalizeSpanishPhone(phone) {
     return { valid: true, formatted };
 }
 
+function formatSpanishPhoneInput(rawValue) {
+    const digits = (rawValue || '').replace(/\D/g, '');
+    if (!digits) return '';
+
+    let nationalDigits = digits;
+    if (digits.startsWith('34')) {
+        nationalDigits = digits.slice(2);
+    }
+
+    nationalDigits = nationalDigits.slice(0, 9);
+
+    const part1 = nationalDigits.slice(0, 3);
+    const part2 = nationalDigits.slice(3, 6);
+    const part3 = nationalDigits.slice(6, 9);
+
+    let formatted = '+34';
+    if (part1) formatted += ` ${part1}`;
+    if (part2) formatted += ` ${part2}`;
+    if (part3) formatted += ` ${part3}`;
+
+    return formatted;
+}
+
 async function handleVehicleSubmit(event) {
     event.preventDefault();
 
@@ -143,7 +188,12 @@ async function handleVehicleSubmit(event) {
         const result = await response.json();
 
         if (response.ok) {
-            showMessage(result.message, 'success');
+            let msg = result.message;
+            if (currentWorkshop && currentWorkshop.slug) {
+                const trackUrl = `${window.location.origin}/${currentWorkshop.slug}/status/${plate}`;
+                msg += `\n\n🔗 URL de seguimiento: ${trackUrl}`;
+            }
+            showMessage(msg, 'success', 6000);
             vehicleForm.reset();
             await loadVehicles();
             return;

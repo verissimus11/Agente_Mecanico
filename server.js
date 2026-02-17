@@ -3,6 +3,8 @@ const cors = require('cors');
 const path = require('path');
 const { testConnection } = require('./db/sqlite-connection');
 const vehicleRoutes = require('./routes/vehicles');
+const workshopRoutes = require('./routes/workshops');
+const publicRoutes = require('./routes/public');
 
 // Cargar variables de entorno
 require('dotenv').config();
@@ -20,10 +22,30 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Rutas API
 app.use('/vehicles', vehicleRoutes);
+app.use('/workshops', workshopRoutes);
+app.use('/api/public', publicRoutes);
 
-// Ruta principal - servir el frontend
+// Ruta principal - servir el frontend admin
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Ruta pública de seguimiento: /:slug/status/:plate
+app.get('/:slug/status/:plate', (req, res) => {
+  const { slug, plate } = req.params;
+  // Sanitización básica
+  if (!slug || !plate || slug.length > 50 || plate.length > 20) {
+    return res.status(400).send('Solicitud inválida');
+  }
+  // Solo servir si el slug tiene formato válido (evitar colisión con rutas estáticas)
+  if (/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(slug) || /^[a-z0-9]{2,}$/.test(slug)) {
+    res.sendFile(path.join(__dirname, 'public', 'tracking.html'));
+  } else {
+    res.status(404).json({
+      error: 'NOT_FOUND',
+      message: 'Ruta no encontrada'
+    });
+  }
 });
 
 // Middleware de manejo de errores
@@ -52,10 +74,12 @@ const startServer = async () => {
     // Iniciar servidor
     app.listen(PORT, () => {
       console.log(`
-    🚗 TallerFlow v0.1.2 - Fase A
+    🚗 TallerFlow v0.3.0 - Multi-taller + Seguimiento Público
 🟢 Servidor iniciado en http://localhost:${PORT}
-📊 Base de datos SQLite conectada
-⚡ Sistema listo para registro de vehículos
+📊 Base de datos SQLite conectada (3 tablas)
+🏭 Soporte multi-taller activo
+📍 Seguimiento público: /:slug/status/:plate
+⚡ Sistema listo
       `);
     });
     

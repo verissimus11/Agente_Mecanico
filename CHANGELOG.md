@@ -5,6 +5,49 @@ Todos los cambios importantes de este proyecto serán documentados en este archi
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/),
 y este proyecto adhiere al [Versionado Semántico](https://semver.org/lang/es/).
 
+## [0.3.0] - 2026-02-17
+
+### Agregado
+- **Arquitectura multi-taller**: Tabla `workshops` con `id`, `name`, `slug` (único), `active`
+- **Historial de estados**: Tabla `vehicle_logs` con `vehicle_id`, `status`, `note`, `created_at`
+- **Endpoint público**: `GET /api/public/:slug/status/:plate` — devuelve estado + historial sin datos sensibles
+- **Página pública de seguimiento**: `/:slug/status/:plate` con timeline visual tipo "seguimiento de paquete"
+- **CRUD de talleres**: `POST /workshops`, `GET /workshops`, `GET /workshops/:slug`
+- **Modelo Workshop**: `findBySlug`, `create`, `listActive`, `getOrCreateDefault`, `normalizeSlug`, `isValidSlug`
+- **Modelo VehicleLog**: `create`, `findByVehicleId`, `findPublicByVehicleId`
+- **Controlador público**: `PublicController.getVehicleStatus` — sanitiza inputs, no expone datos sensibles
+- **Taller por defecto**: Se crea "Taller Demo" automáticamente al iniciar si no existe ninguno
+- **URL de seguimiento**: Se muestra al registrar un vehículo en el panel admin
+- **Foreign keys SQLite**: Habilitadas con `PRAGMA foreign_keys = ON`
+
+### Cambiado
+- **Tabla vehicles**: Nueva columna `workshop_id` (FK → workshops.id)
+- **Todas las consultas de vehículos**: Filtran por `workshop_id` para separación lógica entre talleres
+- **VehicleController.create**: Ahora crea un `vehicle_log` inicial ("Vehículo recibido") al registrar
+- **VehicleController.updateStatus**: Cada cambio de estado genera un registro en `vehicle_logs` (atómico)
+- **VehicleController.findById**: Ahora incluye historial completo (`logs`) en la respuesta
+- **Vehicle.create**: Requiere `workshopId` como primer parámetro
+- **Vehicle.getActive**: Filtrada por `workshopId`
+- **Vehicle.updateStatus**: Filtrada por `workshopId`
+- **Vehicle.findByPhone/findByPlate/findById**: Todas filtradas por `workshopId`
+- **Rutas vehicles.js**: Middleware que inyecta `workshop_id` desde header `X-Workshop-Slug` o query `?workshop=`
+- **server.js**: Monta rutas `/workshops`, `/api/public`, y `/:slug/status/:plate`
+- **Banner de servidor**: Actualizado a v0.3.0 con info multi-taller
+- **README**: Documentación completa de la nueva arquitectura multi-tenant
+
+### Seguridad
+- Sanitización de `slug` y `plate` en endpoint público (longitud máxima, caracteres válidos)
+- Sin exposición de `id`, `phone`, `workshop_id` ni stack traces en respuestas públicas
+- Queries parametrizadas en todos los modelos
+- Validación de slug: 2-50 caracteres, solo letras/números/guiones
+
+### Técnico
+- Base de datos: 3 tablas (`workshops`, `vehicles`, `vehicle_logs`) con índices y foreign keys
+- Índices: `idx_workshops_slug`, `idx_vehicles_workshop`, `idx_vehicle_logs_vehicle`, `idx_vehicle_logs_created`
+- Arquitectura multi-tenant lógica: un backend, una BD, separación por `workshop_id`
+
+---
+
 ## [0.1.2] - 2026-02-17
 
 ### Agregado
