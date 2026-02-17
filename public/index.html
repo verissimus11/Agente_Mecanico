@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TallerFlow - Control Vehicular</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <h1 class="logo">TallerFlow</h1>
+            <p class="powered-by">Powered by Grupo Lance</p>
+            <p class="subtitle">Sistema de Control Vehicular</p>
+        </div>
+    </header>
+
+    <main class="main">
+        <div class="container">
+            <!-- Formulario de registro -->
+            <section class="card">
+                <h2>Registrar Vehículo</h2>
+                <form id="vehicleForm" class="form">
+                    <div class="form-group">
+                        <label for="plate">Matrícula</label>
+                        <input type="text" id="plate" name="plate" required 
+                               placeholder="Ej: ABC123" maxlength="20">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="phone">Teléfono</label>
+                        <input type="tel" id="phone" name="phone" required 
+                               placeholder="Ej: +57 300 123 4567" maxlength="20">
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary btn-large">
+                        Registrar Vehículo
+                    </button>
+                </form>
+            </section>
+
+            <!-- Mensaje de respuesta -->
+            <div id="messageContainer" class="message-container" style="display: none;">
+                <div id="messageContent" class="message"></div>
+            </div>
+
+            <!-- Tabla de vehículos -->
+            <section class="card">
+                <h2>Vehículos en Taller</h2>
+                <div class="table-container">
+                    <table id="vehiclesTable" class="table">
+                        <thead>
+                            <tr>
+                                <th>Matrícula</th>
+                                <th>Teléfono</th>
+                                <th>Estado</th>
+                                <th>Última Actualización</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="vehiclesTableBody">
+                            <!-- Los vehículos se cargarán dinámicamente -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Mensaje cuando no hay vehículos -->
+                <div id="noVehiclesMessage" class="no-data" style="display: none;">
+                    <p>No hay vehículos registrados</p>
+                </div>
+            </section>
+
+            <!-- Botones de estado -->
+            <section class="card">
+                <h2>Cambiar Estado del Vehículo</h2>
+                <p class="help-text">Selecciona un vehículo de la tabla y luego usa estos botones:</p>
+                
+                <div class="status-buttons">
+                    <button id="statusEnRevision" class="btn btn-status btn-revision" disabled>
+                        En Revisión
+                    </button>
+                    <button id="statusEsperandoPieza" class="btn btn-status btn-waiting" disabled>
+                        Esperando Pieza
+                    </button>
+                    <button id="statusPresupuestoPendiente" class="btn btn-status btn-budget" disabled>
+                        Presupuesto Pendiente
+                    </button>
+                    <button id="statusListo" class="btn btn-status btn-ready" disabled>
+                        Listo
+                    </button>
+                </div>
+                
+                <div id="selectedVehicleInfo" class="selected-info" style="display: none;">
+                    <p>Vehículo seleccionado: <strong id="selectedPlate"></strong></p>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>Powered by Grupo Lance</p>
+        </div>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>

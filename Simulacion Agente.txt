@@ -1,0 +1,236 @@
+Hola,
+
+Necesito que generes el proyecto completo de la Fase A siguiendo exactamente estas especificaciones. Esto no es una fase de IA ni optimización, es infraestructura mínima funcional.
+
+Estamos construyendo el núcleo determinista del sistema para talleres mecánicos.
+
+Objetivo de esta fase:
+
+Validar que el taller puede:
+
+Registrar un vehículo en menos de 10 segundos.
+
+Actualizar el estado en menos de 2 segundos.
+
+Consultar estado por matrícula o teléfono.
+
+Generar mensaje determinista basado en datos reales.
+
+No usamos IA generativa en esta fase.
+
+STACK DEFINIDO (OBLIGATORIO)
+
+Backend:
+
+Node.js
+
+Express
+
+Base de datos:
+
+PostgreSQL
+
+Compatible con Supabase
+
+Usar pg o Prisma simple (sin complejidad innecesaria)
+
+Frontend:
+
+HTML puro
+
+CSS básico responsive
+
+JavaScript vanilla
+
+Sin React
+
+Sin frameworks frontend pesados
+
+MODELO DE DATOS
+
+Tabla: vehicles
+
+Campos:
+
+id (uuid, primary key)
+
+plate (string, required, indexed)
+
+phone (string, required)
+
+status (enum exacto):
+
+EN_REVISION
+
+ESPERANDO_PIEZA
+
+PRESUPUESTO_PENDIENTE
+
+LISTO
+
+last_event (string, nullable)
+
+updated_at (timestamp auto update)
+
+active (boolean default true)
+
+No añadir más campos.
+
+ENDPOINTS REQUERIDOS
+
+POST /vehicles
+
+Crear vehículo
+
+Recibe: plate, phone
+
+Estado inicial: EN_REVISION
+
+GET /vehicles?active=true
+
+Listar vehículos activos
+
+PATCH /vehicles/:id/status
+
+Actualizar status
+
+Actualizar updated_at automáticamente
+
+GET /vehicles/by-phone/:phone
+
+Devuelve vehículo activo
+
+Si no existe → { error: "NO_ACTIVE_VEHICLE" }
+
+GET /vehicles/by-plate/:plate
+
+Devuelve estado actual y última actualización
+
+LÓGICA DETERMINISTA
+
+Crear función:
+
+generateStatusMessage(vehicle)
+
+Debe devolver en español:
+
+"Tu vehículo con matrícula {plate} está actualmente en estado {status}. Última actualización: {updated_at}. Te avisaremos cuando haya cambios."
+
+Sin variación.
+Sin IA.
+Sin tono avanzado.
+
+FRONTEND
+
+Una sola página HTML.
+
+Todo en español.
+
+Nombre visible de la página:
+Un nombre profesional aleatorio (ej: TallerFlow, AutoEstado, ControlVehicular, etc.)
+
+Footer debe decir:
+"Powered by Grupo Lance"
+
+Interfaz:
+
+Formulario:
+
+Matrícula
+
+Teléfono
+
+Botón "Registrar vehículo"
+
+Tabla de vehículos activos:
+
+Matrícula
+
+Teléfono
+
+Estado actual
+
+Última actualización
+
+Botones grandes para cambiar estado:
+
+EN_REVISION
+
+ESPERANDO_PIEZA
+
+PRESUPUESTO_PENDIENTE
+
+LISTO
+
+Al pulsar botón:
+
+Llamar PATCH endpoint
+
+Actualizar tabla sin recargar página
+
+Debe verse correctamente en móvil.
+
+No incluir:
+
+Autenticación avanzada
+
+Roles
+
+Panel administrativo complejo
+
+Microservicios
+
+Docker
+
+Testing avanzado
+
+ESTRUCTURA DEL PROYECTO
+
+/server.js
+/routes/
+/controllers/
+/models/
+/db/
+/public/
+
+Incluir:
+
+.env.example
+
+README en español
+
+Script SQL para crear tabla
+
+npm start funcional
+
+CHANGELOG.md
+
+VERSIONADO
+
+Iniciar en v0.1.0
+
+Usar SemVer
+
+Añadir versión en README
+
+Commit inicial:
+"v0.1.0 - Infraestructura mínima funcional Fase A"
+
+Objetivo:
+
+Sistema funcional local en máximo 5 días que permita:
+
+Crear vehículo
+
+Cambiar estado
+
+Consultar estado
+
+Generar respuesta determinista
+
+Después de validar en taller real, pasaremos a integrar WhatsApp.
+Después añadiremos capa inteligente.
+
+Prioridad ahora: ejecución limpia, mínima y funcional.
+
+Confírmame cuando esté listo para revisión.
