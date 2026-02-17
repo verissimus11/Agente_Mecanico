@@ -4,270 +4,311 @@ let vehicles = [];
 
 // Elementos del DOM
 const vehicleForm = document.getElementById('vehicleForm');
+const plateInput = document.getElementById('plate');
+const phoneInput = document.getElementById('phone');
+const plateSearchInput = document.getElementById('plateSearch');
 const vehiclesTableBody = document.getElementById('vehiclesTableBody');
 const noVehiclesMessage = document.getElementById('noVehiclesMessage');
+const noSearchResultsMessage = document.getElementById('noSearchResultsMessage');
 const messageContainer = document.getElementById('messageContainer');
 const messageContent = document.getElementById('messageContent');
+const statusSectionInstruction = document.getElementById('statusSectionInstruction');
+const selectedPlate = document.getElementById('selectedPlate');
+
 const statusButtons = {
     enRevision: document.getElementById('statusEnRevision'),
     esperandoPieza: document.getElementById('statusEsperandoPieza'),
     presupuestoPendiente: document.getElementById('statusPresupuestoPendiente'),
     listo: document.getElementById('statusListo')
 };
-const selectedVehicleInfo = document.getElementById('selectedVehicleInfo');
-const selectedPlate = document.getElementById('selectedPlate');
 
-// Mapeo de estados
 const STATUS_MAP = {
-    'EN_REVISION': 'En Revisión',
-    'ESPERANDO_PIEZA': 'Esperando Pieza',
-    'PRESUPUESTO_PENDIENTE': 'Presupuesto Pendiente',
-    'LISTO': 'Listo'
+    EN_REVISION: 'En revisión',
+    ESPERANDO_PIEZA: 'Esperando pieza',
+    PRESUPUESTO_PENDIENTE: 'Presupuesto pendiente',
+    LISTO: 'Listo'
+};
+
+const STATUS_BADGE_MAP = {
+    EN_REVISION: '🛠 En revisión',
+    ESPERANDO_PIEZA: '📦 Esperando pieza',
+    PRESUPUESTO_PENDIENTE: '📄 Presupuesto pendiente',
+    LISTO: '✅ Listo'
 };
 
 const STATUS_CLASSES = {
-    'EN_REVISION': 'status-en-revision',
-    'ESPERANDO_PIEZA': 'status-esperando-pieza',
-    'PRESUPUESTO_PENDIENTE': 'status-presupuesto-pendiente',
-    'LISTO': 'status-listo'
+    EN_REVISION: 'status-en-revision',
+    ESPERANDO_PIEZA: 'status-esperando-pieza',
+    PRESUPUESTO_PENDIENTE: 'status-presupuesto-pendiente',
+    LISTO: 'status-listo'
 };
 
-// Inicializar aplicación
-document.addEventListener('DOMContentLoaded', function() {
-    initializeApp();
-});
+document.addEventListener('DOMContentLoaded', initializeApp);
 
 function initializeApp() {
     setupEventListeners();
+    setStatusButtonsEnabled(false);
+    updateSelectionState();
     loadVehicles();
-    
-    // Deshabilitar botones de estado inicialmente
-    Object.values(statusButtons).forEach(btn => {
-        btn.disabled = true;
-        btn.dataset.originalText = btn.textContent;
-    });
 }
 
 function setupEventListeners() {
-    // Formulario de registro
     vehicleForm.addEventListener('submit', handleVehicleSubmit);
-    
-    // Botones de estado
+
+    plateInput.addEventListener('input', () => {
+        plateInput.value = normalizePlate(plateInput.value);
+    });
+
+    phoneInput.addEventListener('blur', () => {
+        const normalizedPhone = normalizeSpanishPhone(phoneInput.value);
+        if (normalizedPhone.valid) {
+            phoneInput.value = normalizedPhone.formatted;
+        }
+    });
+
+    plateSearchInput.addEventListener('input', () => {
+        renderVehiclesTable();
+    });
+
     statusButtons.enRevision.addEventListener('click', () => updateVehicleStatus('EN_REVISION'));
     statusButtons.esperandoPieza.addEventListener('click', () => updateVehicleStatus('ESPERANDO_PIEZA'));
     statusButtons.presupuestoPendiente.addEventListener('click', () => updateVehicleStatus('PRESUPUESTO_PENDIENTE'));
     statusButtons.listo.addEventListener('click', () => updateVehicleStatus('LISTO'));
 }
 
-// Manejar envío del formulario
+function normalizePlate(plate) {
+    return (plate || '').toUpperCase().replace(/\s+/g, '').trim();
+}
+
+function normalizeSpanishPhone(phone) {
+    const digits = (phone || '').replace(/\D/g, '');
+    let normalized = digits;
+
+    if (digits.length === 9) {
+        normalized = `34${digits}`;
+    }
+
+    if (normalized.length !== 11 || !normalized.startsWith('34')) {
+        return { valid: false, formatted: '' };
+    }
+
+    const nationalNumber = normalized.slice(2);
+    if (!/^[6789]\d{8}$/.test(nationalNumber)) {
+        return { valid: false, formatted: '' };
+    }
+
+    const formatted = `+34 ${nationalNumber.slice(0, 3)} ${nationalNumber.slice(3, 6)} ${nationalNumber.slice(6)}`;
+    return { valid: true, formatted };
+}
+
 async function handleVehicleSubmit(event) {
     event.preventDefault();
-    
+
     const formData = new FormData(vehicleForm);
-    let plate = formData.get('plate').trim();
-    const phone = formData.get('phone').trim();
-    
-    // Normalización automática de matrícula
-    plate = plate.toUpperCase().replace(/\s+/g, '');
-    
-    // Validación básica mejorada
-    if (!plate || !phone) {
-        showMessage('Por favor completa todos los campos', 'error');
+    const plate = normalizePlate(formData.get('plate'));
+    const phoneResult = normalizeSpanishPhone(formData.get('phone'));
+
+    if (!plate || !formData.get('phone')) {
+        showMessage('Por favor completa todos los campos.', 'error');
         return;
     }
-    
+
     if (plate.length < 3 || plate.length > 15) {
-        showMessage('La matrícula debe tener entre 3 y 15 caracteres', 'error');
+        showMessage('La matrícula debe tener entre 3 y 15 caracteres.', 'error');
         return;
     }
-    
-    // Mostrar en el campo la versión normalizada
-    document.getElementById('plate').value = plate;
-    
-    const vehicleData = { plate, phone };
-    
+
+    if (!phoneResult.valid) {
+        showMessage('El teléfono debe ser válido en España (9 dígitos).', 'error');
+        return;
+    }
+
+    plateInput.value = plate;
+    phoneInput.value = phoneResult.formatted;
+
+    const vehicleData = {
+        plate,
+        phone: phoneResult.formatted
+    };
+
     try {
         const response = await fetch('/vehicles', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify(vehicleData)
         });
-        
+
         const result = await response.json();
-        
+
         if (response.ok) {
             showMessage(result.message, 'success');
             vehicleForm.reset();
-            loadVehicles(); // Recargar tabla
-        } else {
-            // Manejar diferentes tipos de error
-            if (result.error === 'VEHICLE_ALREADY_ACTIVE') {
-                showMessage(`Ya existe un vehículo activo con la matrícula ${plate}. Verifica la tabla de vehículos.`, 'error', 6000);
-            } else {
-                showMessage(result.message || 'Error al registrar vehículo', 'error');
-            }
+            await loadVehicles();
+            return;
         }
-        
+
+        if (result.error === 'VEHICLE_ALREADY_ACTIVE') {
+            showMessage('Ya existe una matrícula activa. Revisa la tabla.', 'error');
+            return;
+        }
+
+        showMessage(result.message || 'Error al registrar vehículo.', 'error');
     } catch (error) {
-        console.error('Error:', error);
         showMessage('Error de conexión. Intenta nuevamente.', 'error');
     }
 }
 
-// Cargar vehículos
 async function loadVehicles() {
     try {
         const response = await fetch('/vehicles?active=true');
         const result = await response.json();
-        
-        if (response.ok) {
-            vehicles = result.data;
-            renderVehiclesTable();
-        } else {
-            showMessage('Error al cargar vehículos', 'error');
+
+        if (!response.ok) {
+            showMessage('Error al cargar vehículos.', 'error');
+            return;
         }
-        
+
+        vehicles = (result.data || []).sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+
+        if (selectedVehicleId && !vehicles.some((vehicle) => vehicle.id === selectedVehicleId)) {
+            selectedVehicleId = null;
+        }
+
+        renderVehiclesTable();
+        updateSelectionState();
     } catch (error) {
-        console.error('Error:', error);
-        showMessage('Error de conexión al cargar vehículos', 'error');
+        showMessage('Error de conexión al cargar vehículos.', 'error');
     }
 }
 
-// Renderizar tabla de vehículos
+function getFilteredVehicles() {
+    const query = normalizePlate(plateSearchInput.value || '');
+    if (!query) {
+        return vehicles;
+    }
+
+    return vehicles.filter((vehicle) => normalizePlate(vehicle.plate).includes(query));
+}
+
 function renderVehiclesTable() {
-    if (vehicles.length === 0) {
+    const filtered = getFilteredVehicles();
+    const hasVehicles = vehicles.length > 0;
+    const hasFilteredResults = filtered.length > 0;
+
+    noVehiclesMessage.style.display = hasVehicles ? 'none' : 'block';
+    noSearchResultsMessage.style.display = hasVehicles && !hasFilteredResults ? 'block' : 'none';
+
+    if (!hasFilteredResults) {
         vehiclesTableBody.innerHTML = '';
-        noVehiclesMessage.style.display = 'block';
         return;
     }
-    
-    noVehiclesMessage.style.display = 'none';
-    
-    vehiclesTableBody.innerHTML = vehicles.map(vehicle => `
-        <tr data-vehicle-id="${vehicle.id}" onclick="selectVehicle('${vehicle.id}')" class="vehicle-row">
+
+    vehiclesTableBody.innerHTML = filtered.map((vehicle) => `
+        <tr data-vehicle-id="${vehicle.id}" class="vehicle-row ${vehicle.id === selectedVehicleId ? 'selected' : ''}" onclick="selectVehicle('${vehicle.id}')">
             <td><strong>${vehicle.plate}</strong></td>
             <td>${vehicle.phone}</td>
             <td>
                 <span class="status-badge ${STATUS_CLASSES[vehicle.status]}">
-                    ${STATUS_MAP[vehicle.status]}
+                    ${STATUS_BADGE_MAP[vehicle.status] || vehicle.status}
                 </span>
             </td>
             <td>${formatDate(vehicle.updated_at)}</td>
-            <td>
-                <button class="btn btn-primary" onclick="event.stopPropagation(); selectVehicle('${vehicle.id}')">
-                    Seleccionar
-                </button>
-            </td>
         </tr>
     `).join('');
 }
 
-// Seleccionar vehículo
 function selectVehicle(vehicleId) {
     selectedVehicleId = vehicleId;
-    const vehicle = vehicles.find(v => v.id === vehicleId);
-    
-    if (!vehicle) return;
-    
-    // Actualizar UI
-    document.querySelectorAll('.vehicle-row').forEach(row => {
-        row.classList.remove('selected');
-    });
-    
-    const selectedRow = document.querySelector(`[data-vehicle-id="${vehicleId}"]`);
-    if (selectedRow) {
-        selectedRow.classList.add('selected');
-    }
-    
-    // Habilitar botones de estado
-    Object.values(statusButtons).forEach(btn => {
-        btn.disabled = false;
-    });
-    
-    // Mostrar información del vehículo seleccionado
-    selectedPlate.textContent = vehicle.plate;
-    selectedVehicleInfo.style.display = 'block';
-    
-    showMessage(`Vehículo ${vehicle.plate} seleccionado. Puedes cambiar su estado usando los botones.`, 'info');
+    renderVehiclesTable();
+    updateSelectionState();
 }
 
-// Actualizar estado del vehículo
-async function updateVehicleStatus(newStatus) {
-    if (!selectedVehicleId) {
-        showMessage('Selecciona un vehículo primero', 'error');
+function updateSelectionState() {
+    const selectedVehicle = vehicles.find((vehicle) => vehicle.id === selectedVehicleId);
+
+    if (selectedVehicle) {
+        selectedPlate.textContent = selectedVehicle.plate;
+        statusSectionInstruction.textContent = `Vehículo seleccionado: ${selectedVehicle.plate}`;
+        setStatusButtonsEnabled(true);
         return;
     }
-    
+
+    selectedPlate.textContent = 'Ninguno';
+    statusSectionInstruction.textContent = 'Selecciona un vehículo para cambiar el estado.';
+    setStatusButtonsEnabled(false);
+}
+
+function setStatusButtonsEnabled(enabled) {
+    Object.values(statusButtons).forEach((button) => {
+        button.disabled = !enabled;
+    });
+}
+
+async function updateVehicleStatus(newStatus) {
+    if (!selectedVehicleId) {
+        showMessage('Selecciona un vehículo para cambiar el estado.', 'error');
+        return;
+    }
+
+    const originalHtmlByButton = new Map();
+
     try {
-        // Deshabilitar todos los botones temporalmente
-        Object.values(statusButtons).forEach(btn => {
-            btn.disabled = true;
+        Object.values(statusButtons).forEach((button) => {
+            originalHtmlByButton.set(button, button.innerHTML);
+            button.disabled = true;
         });
-        
-        // Encontrar y actualizar el botón activo
-        const activeButton = Object.values(statusButtons).find(btn => 
-            btn.textContent.replace(/\s+/g, '_').toUpperCase() === newStatus
-        );
-        
+
+        const activeButton = getButtonForStatus(newStatus);
         if (activeButton) {
             activeButton.innerHTML = '<span class="loading"></span> Actualizando...';
         }
-        
+
         const response = await fetch(`/vehicles/${selectedVehicleId}/status`, {
             method: 'PATCH',
             headers: {
-                'Content-Type': 'application/json',
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({
                 status: newStatus,
                 last_event: `Estado cambiado a ${STATUS_MAP[newStatus]}`
             })
         });
-        
-        const result = await response.json();
-        
+
         if (response.ok) {
-            // Mostrar mensaje de éxito que desaparece automáticamente
-            showMessage('Estado actualizado correctamente', 'success', 3000);
-            loadVehicles(); // Recargar tabla
-            
-            // Mantener selección después de actualizar
-            setTimeout(() => {
-                const updatedRow = document.querySelector(`[data-vehicle-id="${selectedVehicleId}"]`);
-                if (updatedRow) {
-                    updatedRow.classList.add('selected');
-                }
-            }, 100);
-            
+            showMessage('Estado actualizado correctamente.', 'success', 3000);
+            await loadVehicles();
         } else {
-            showMessage('Error al actualizar. Intenta nuevamente.', 'error');
+            showMessage('Error al actualizar. Intenta nuevamente.', 'error', 3000);
         }
-        
     } catch (error) {
-        console.error('Error:', error);
-        showMessage('Error de conexión al actualizar estado', 'error');
+        showMessage('Error al actualizar. Intenta nuevamente.', 'error', 3000);
     } finally {
-        // Restaurar botones
-        setTimeout(() => {
-            Object.values(statusButtons).forEach(btn => {
-                btn.disabled = selectedVehicleId === null;
-                const originalText = btn.dataset.originalText || btn.textContent;
-                btn.innerHTML = originalText;
-            });
-        }, 500);
+        Object.values(statusButtons).forEach((button) => {
+            const originalHtml = originalHtmlByButton.get(button);
+            if (originalHtml !== undefined) {
+                button.innerHTML = originalHtml;
+            }
+        });
+        updateSelectionState();
     }
 }
 
-// Mostrar mensaje
-function showMessage(message, type = 'info', duration = 5000) {
+function getButtonForStatus(status) {
+    if (status === 'EN_REVISION') return statusButtons.enRevision;
+    if (status === 'ESPERANDO_PIEZA') return statusButtons.esperandoPieza;
+    if (status === 'PRESUPUESTO_PENDIENTE') return statusButtons.presupuestoPendiente;
+    if (status === 'LISTO') return statusButtons.listo;
+    return null;
+}
+
+function showMessage(message, type = 'info', duration = 3000) {
     messageContent.textContent = message;
     messageContent.className = `message ${type}`;
     messageContainer.style.display = 'block';
     messageContainer.classList.add('fade-in');
-    
-    // Auto-ocultar después del tiempo especificado
+
     if (duration > 0) {
         setTimeout(() => {
             messageContainer.style.display = 'none';
@@ -276,39 +317,18 @@ function showMessage(message, type = 'info', duration = 5000) {
     }
 }
 
-// Formatear fecha
 function formatDate(dateString) {
-    const date = new Date(dateString);
-    return date.toLocaleString('es-ES', {
-        year: 'numeric',
-        month: '2-digit',
+    return new Date(dateString).toLocaleString('es-ES', {
         day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
         hour: '2-digit',
         minute: '2-digit'
     });
 }
 
-// Guardar texto original de botones
-document.addEventListener('DOMContentLoaded', function() {
-    Object.values(statusButtons).forEach(btn => {
-        btn.dataset.originalText = btn.textContent;
-    });
-});
-
-// Actualizar automáticamente cada 30 segundos
 setInterval(() => {
     if (document.visibilityState === 'visible') {
         loadVehicles();
     }
 }, 30000);
-
-// Funciones auxiliares para debugging (solo en desarrollo)
-if (window.location.hostname === 'localhost') {
-    window.debugApp = {
-        vehicles,
-        selectedVehicleId,
-        loadVehicles,
-        selectVehicle,
-        updateVehicleStatus
-    };
-}

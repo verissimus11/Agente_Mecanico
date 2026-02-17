@@ -30,7 +30,7 @@
                     <div class="form-group">
                         <label for="phone">Teléfono</label>
                         <input type="tel" id="phone" name="phone" required 
-                               placeholder="Ej: +57 300 123 4567" maxlength="20">
+                               placeholder="Ej: +34 612 345 678" maxlength="20">
                     </div>
                     
                     <button type="submit" class="btn btn-primary btn-large">
@@ -47,6 +47,17 @@
             <!-- Tabla de vehículos -->
             <section class="card">
                 <h2>Vehículos en Taller</h2>
+
+                <div class="form-group search-group">
+                    <label for="plateSearch">Buscar por matrícula</label>
+                    <input
+                        type="text"
+                        id="plateSearch"
+                        placeholder="Escribe una matrícula..."
+                        autocomplete="off"
+                    >
+                </div>
+
                 <div class="table-container">
                     <table id="vehiclesTable" class="table">
                         <thead>
@@ -55,7 +66,6 @@
                                 <th>Teléfono</th>
                                 <th>Estado</th>
                                 <th>Última Actualización</th>
-                                <th>Acciones</th>
                             </tr>
                         </thead>
                         <tbody id="vehiclesTableBody">
@@ -68,12 +78,16 @@
                 <div id="noVehiclesMessage" class="no-data" style="display: none;">
                     <p>No hay vehículos registrados</p>
                 </div>
+
+                <div id="noSearchResultsMessage" class="no-data" style="display: none;">
+                    <p>No se encontraron vehículos con esa matrícula.</p>
+                </div>
             </section>
 
             <!-- Botones de estado -->
             <section class="card">
                 <h2>Cambiar Estado del Vehículo</h2>
-                <p class="help-text">Selecciona un vehículo de la tabla y luego usa estos botones:</p>
+                <p id="statusSectionInstruction" class="help-text">Selecciona un vehículo para cambiar el estado.</p>
                 
                 <div class="status-buttons">
                     <button id="statusEnRevision" class="btn btn-status btn-revision" disabled>
@@ -90,8 +104,8 @@
                     </button>
                 </div>
                 
-                <div id="selectedVehicleInfo" class="selected-info" style="display: none;">
-                    <p>Vehículo seleccionado: <strong id="selectedPlate"></strong></p>
+                <div id="selectedVehicleInfo" class="selected-info">
+                    <p id="selectedVehicleText">Vehículo seleccionado: <strong id="selectedPlate">Ninguno</strong></p>
                 </div>
             </section>
         </div>

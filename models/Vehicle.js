@@ -15,16 +15,16 @@ class Vehicle {
     if (!vehicle) return '';
     
     const statusTranslations = {
-      'EN_REVISION': 'en revisión',
-      'ESPERANDO_PIEZA': 'esperando repuesto', 
-      'PRESUPUESTO_PENDIENTE': 'con presupuesto pendiente de aprobación',
-      'LISTO': 'listo para retirar'
+      'EN_REVISION': 'En revisión',
+      'ESPERANDO_PIEZA': 'Esperando pieza',
+      'PRESUPUESTO_PENDIENTE': 'Presupuesto pendiente',
+      'LISTO': 'Listo'
     };
 
-    const statusText = statusTranslations[vehicle.status] || vehicle.status.toLowerCase();
+    const statusText = statusTranslations[vehicle.status] || vehicle.status;
     
     // Formatear fecha en español legible
-    const updatedAt = new Date(vehicle.updated_at).toLocaleDateString('es-ES', {
+    const updatedAt = new Date(vehicle.updated_at).toLocaleString('es-ES', {
       weekday: 'long',
       year: 'numeric',
       month: 'long', 
@@ -33,7 +33,7 @@ class Vehicle {
       minute: '2-digit'
     });
 
-    return `Tu vehículo con matrícula ${vehicle.plate} está actualmente ${statusText}. Última actualización: ${updatedAt}. Te avisaremos cuando haya cambios.`;
+    return `Tu vehículo con matrícula ${vehicle.plate} está actualmente en estado ${statusText}. Última actualización: ${updatedAt}. Te avisaremos cuando haya cambios.`;
   }
 
   // Crear nuevo vehículo

@@ -1,6 +1,6 @@
 # TallerFlow - Sistema de Control Vehicular
 
-**Versión:** v0.1.1 - Fase A  
+**Versión:** v0.1.2 - Fase A  
 **Autor:** Grupo Lance  
 
 ## Descripción
@@ -15,6 +15,14 @@ Esta es la **Fase A** - Infraestructura mínima funcional. No incluye IA generat
 ✅ Actualizar el estado en menos de 2 segundos  
 ✅ Consultar estado por matrícula o teléfono  
 ✅ Generar mensaje determinista basado en datos reales  
+
+## Novedades v0.1.2
+
+- Búsqueda en tiempo real por matrícula sobre vehículos activos
+- Selección de vehículo haciendo click en la fila (sin botón extra)
+- Validación y normalización de teléfono para España (`+34`)
+- Mejora visual de badges de estado con iconos
+- Mensajería operativa más clara para actualización de estado
 
 ## Stack Tecnológico
 
@@ -64,7 +72,7 @@ Esta es la **Fase A** - Infraestructura mínima funcional. No incluye IA generat
 
 ### Actualización de Estados
 
-1. Seleccionar vehículo en la tabla
+1. Seleccionar vehículo haciendo click en una fila de la tabla
 2. Usar botones de estado:
    - **En Revisión** - Vehículo en proceso de diagnóstico
    - **Esperando Pieza** - Aguardando repuestos
@@ -75,6 +83,7 @@ Esta es la **Fase A** - Infraestructura mínima funcional. No incluye IA generat
 
 - **Por matrícula:** `GET /vehicles/by-plate/:plate`
 - **Por teléfono:** `GET /vehicles/by-phone/:phone`
+- **Por ID:** `GET /vehicles/:id`
 
 ## Endpoints API
 
@@ -85,6 +94,7 @@ Esta es la **Fase A** - Infraestructura mínima funcional. No incluye IA generat
 | PATCH | `/vehicles/:id/status` | Actualizar estado |
 | GET | `/vehicles/by-phone/:phone` | Buscar por teléfono |
 | GET | `/vehicles/by-plate/:plate` | Buscar por matrícula |
+| GET | `/vehicles/:id` | Buscar por ID |
 
 ### Ejemplo de Uso API
 
@@ -92,7 +102,7 @@ Esta es la **Fase A** - Infraestructura mínima funcional. No incluye IA generat
 # Crear vehículo
 curl -X POST http://localhost:3000/vehicles \
   -H "Content-Type: application/json" \
-  -d '{\"plate\":\"ABC123\",\"phone\":\"+57 300 123 4567\"}'
+   -d '{\"plate\":\"ABC123\",\"phone\":\"+34 612 345 678\"}'
 
 # Actualizar estado
 curl -X PATCH http://localhost:3000/vehicles/{id}/status \
@@ -202,7 +212,7 @@ npm run dev    # Iniciar servidor de desarrollo (alias de start)
 ## Soporte
 
 **Desarrollado por:** Grupo Lance  
-**Versión:** v0.1.0  
+**Versión:** v0.1.2  
 **Fecha:** 2026
 
 ---

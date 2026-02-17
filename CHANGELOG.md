@@ -5,6 +5,32 @@ Todos los cambios importantes de este proyecto serán documentados en este archi
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/),
 y este proyecto adhiere al [Versionado Semántico](https://semver.org/lang/es/).
 
+## [0.1.2] - 2026-02-17
+
+### Agregado
+- Barra de búsqueda por matrícula con filtrado en tiempo real sobre datos ya cargados
+- Mensaje cuando no hay resultados: "No se encontraron vehículos con esa matrícula."
+- Endpoint `GET /vehicles/:id` documentado y disponible
+- Iconos en badges de estado:
+  - `EN_REVISION` → 🛠 En revisión
+  - `ESPERANDO_PIEZA` → 📦 Esperando pieza
+  - `PRESUPUESTO_PENDIENTE` → 📄 Presupuesto pendiente
+  - `LISTO` → ✅ Listo
+
+### Mejorado
+- Selección de vehículo por click en fila (se elimina paso extra del botón "Seleccionar")
+- Sección de cambio de estado con texto operativo cuando no hay selección
+- Botones de estado deshabilitados de forma explícita hasta seleccionar vehículo
+- Mensajes operativos de actualización con autocierre en 3 segundos
+- Normalización de matrícula en frontend y backend (mayúsculas y sin espacios)
+- Validación y normalización de teléfono para España (`+34` + 9 dígitos)
+- Formato de fecha en español legible dentro de `generateStatusMessage()`
+- Ajustes visuales sobrios: jerarquía, espaciado, sombras y transiciones
+
+### Robustez
+- Prevención de duplicados activos por matrícula mantenida y reforzada
+- Orden de tabla garantizado por `updated_at DESC` en backend y frontend
+
 ## [0.1.1] - 2026-02-17
 
 ### Agregado

@@ -135,6 +135,14 @@ body {
     transition: border-color 0.2s, box-shadow 0.2s;
 }
 
+.search-group {
+    margin-bottom: 1rem;
+}
+
+.search-group input {
+    background-color: #fcfcfd;
+}
+
 .form-group input:focus {
     outline: none;
     border-color: var(--primary-color);
@@ -282,12 +290,12 @@ body {
 }
 
 .table tbody tr:hover {
-    background-color: var(--gray-100);
+    background-color: #f8fafc;
 }
 
 .table tbody tr.selected {
-    background-color: #dbeafe;
-    border-left: 4px solid var(--primary-color);
+    background-color: #eef2ff;
+    box-shadow: inset 4px 0 0 0 var(--primary-color);
 }
 
 /* Estados en tabla con colores sobrios */
@@ -364,14 +372,20 @@ body {
 .help-text {
     color: var(--gray-600);
     margin-bottom: 1rem;
-    font-style: italic;
+    font-style: normal;
+    font-weight: 500;
 }
 
 .selected-info {
-    background-color: var(--gray-100);
+    background-color: #f8fafc;
     padding: 1rem;
-    border-radius: var(--border-radius);
+    border-radius: var(--border-radius-sm);
+    border: 1px solid var(--gray-200);
     margin-top: 1rem;
+}
+
+#selectedVehicleText {
+    color: var(--gray-700);
 }
 
 /* Footer */
@@ -469,10 +483,11 @@ body {
     display: inline-block;
     width: 20px;
     height: 20px;
-    border: 3px solid rgba(255, 255, 255, 0.3);
+    border: 3px solid rgba(17, 24, 39, 0.15);
     border-radius: 50%;
-    border-top-color: white;
+    border-top-color: currentColor;
     animation: spin 1s ease-in-out infinite;
+    vertical-align: middle;
 }
 
 @keyframes spin {

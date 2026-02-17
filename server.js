@@ -52,7 +52,7 @@ const startServer = async () => {
     // Iniciar servidor
     app.listen(PORT, () => {
       console.log(`
-🚗 TallerFlow v0.1.0 - Fase A
+    🚗 TallerFlow v0.1.2 - Fase A
 🟢 Servidor iniciado en http://localhost:${PORT}
 📊 Base de datos SQLite conectada
 ⚡ Sistema listo para registro de vehículos

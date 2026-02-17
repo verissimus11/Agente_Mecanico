@@ -1,6 +1,6 @@
 {
   "name": "taller-control-vehicular",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Sistema de control vehicular para talleres mecánicos - Fase A",
   "main": "server.js",
   "scripts": {
