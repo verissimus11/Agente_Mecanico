@@ -1,8 +1,28 @@
 const Vehicle = require('../models/Vehicle');
 const VehicleLog = require('../models/VehicleLog');
-const Workshop = require('../models/Workshop');
 
 class VehicleController {
+  static handleControllerError(res, error, fallbackMessage = 'Error interno del servidor') {
+    if (error?.code === '23505') {
+      return res.status(409).json({
+        error: 'CONFLICT',
+        message: 'Conflicto de datos: ya existe un registro con esos valores.'
+      });
+    }
+
+    if (error?.name === 'JsonWebTokenError' || error?.name === 'TokenExpiredError') {
+      return res.status(401).json({
+        error: 'INVALID_TOKEN',
+        message: 'Token inválido o expirado.'
+      });
+    }
+
+    return res.status(500).json({
+      error: 'INTERNAL_ERROR',
+      message: fallbackMessage
+    });
+  }
+
   static normalizeSpanishPhone(phone) {
     const digits = String(phone || '').replace(/\D/g, '');
     let normalized = digits;
@@ -86,10 +106,7 @@ class VehicleController {
 
     } catch (error) {
       console.error('❌ Error creando vehículo:', error);
-      res.status(500).json({
-        error: 'INTERNAL_ERROR',
-        message: 'Error interno del servidor'
-      });
+      return VehicleController.handleControllerError(res, error, 'Error interno del servidor');
     }
   }
 
@@ -107,10 +124,7 @@ class VehicleController {
 
     } catch (error) {
       console.error('Error listando vehículos:', error);
-      res.status(500).json({
-        error: 'INTERNAL_ERROR',
-        message: 'Error interno del servidor'
-      });
+      return VehicleController.handleControllerError(res, error, 'Error interno del servidor');
     }
   }
 
@@ -154,10 +168,7 @@ class VehicleController {
 
     } catch (error) {
       console.error('❌ Error actualizando estado:', error);
-      res.status(500).json({
-        error: 'INTERNAL_ERROR',
-        message: 'Error al actualizar. Intenta nuevamente.'
-      });
+      return VehicleController.handleControllerError(res, error, 'Error al actualizar. Intenta nuevamente.');
     }
   }
 
@@ -226,10 +237,7 @@ class VehicleController {
 
     } catch (error) {
       console.error('❌ Error editando vehículo:', error);
-      res.status(500).json({
-        error: 'INTERNAL_ERROR',
-        message: 'Error interno del servidor'
-      });
+      return VehicleController.handleControllerError(res, error, 'Error interno del servidor');
     }
   }
 
@@ -262,10 +270,7 @@ class VehicleController {
 
     } catch (error) {
       console.error('Error buscando por teléfono:', error);
-      res.status(500).json({
-        error: 'INTERNAL_ERROR',
-        message: 'Error interno del servidor'
-      });
+      return VehicleController.handleControllerError(res, error, 'Error interno del servidor');
     }
   }
 
@@ -291,10 +296,7 @@ class VehicleController {
 
     } catch (error) {
       console.error('Error buscando por matrícula:', error);
-      res.status(500).json({
-        error: 'INTERNAL_ERROR', 
-        message: 'Error interno del servidor'
-      });
+      return VehicleController.handleControllerError(res, error, 'Error interno del servidor');
     }
   }
 
@@ -323,10 +325,7 @@ class VehicleController {
 
     } catch (error) {
       console.error('❌ Error buscando por ID:', error);
-      res.status(500).json({
-        error: 'INTERNAL_ERROR', 
-        message: 'Error interno del servidor'
-      });
+      return VehicleController.handleControllerError(res, error, 'Error interno del servidor');
     }
   }
 }

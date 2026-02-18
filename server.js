@@ -3,8 +3,11 @@ require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const path = require('path');
 const { testConnection, closePool } = require('./db/pg-connection');
+const authRoutes = require('./routes/auth');
 const vehicleRoutes = require('./routes/vehicles');
 const workshopRoutes = require('./routes/workshops');
 const publicRoutes = require('./routes/public');
@@ -12,18 +15,47 @@ const publicRoutes = require('./routes/public');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+const isProduction = process.env.NODE_ENV === 'production';
+const forceHttps = process.env.FORCE_HTTPS === 'true';
+
+const trackingRateLimiter = rateLimit({
+  windowMs: Number(process.env.TRACKING_RATE_WINDOW_MS || 15 * 60 * 1000),
+  max: Number(process.env.TRACKING_RATE_MAX || 80),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    error: 'RATE_LIMIT_EXCEEDED',
+    message: 'Demasiadas consultas de seguimiento. Intenta de nuevo en unos minutos.'
+  }
+});
+
 // Middleware
-app.use(cors());
+app.set('trust proxy', 1);
+app.use(helmet());
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || true
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+if (isProduction && forceHttps) {
+  app.use((req, res, next) => {
+    const proto = req.headers['x-forwarded-proto'];
+    if (proto && proto !== 'https') {
+      return res.redirect(301, `https://${req.headers.host}${req.originalUrl}`);
+    }
+    return next();
+  });
+}
 
 // Servir archivos estáticos
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Rutas API
+app.use('/auth', authRoutes);
 app.use('/vehicles', vehicleRoutes);
 app.use('/workshops', workshopRoutes);
-app.use('/api/public', publicRoutes);
+app.use('/api/public', trackingRateLimiter, publicRoutes);
 
 // Ruta principal - servir el frontend admin
 app.get('/', (req, res) => {
@@ -31,7 +63,7 @@ app.get('/', (req, res) => {
 });
 
 // Ruta pública de seguimiento: /:slug/status/:plate
-app.get('/:slug/status/:plate', (req, res) => {
+app.get('/:slug/status/:plate', trackingRateLimiter, (req, res) => {
   const { slug, plate } = req.params;
   // Sanitización básica
   if (!slug || !plate || slug.length > 50 || plate.length > 20) {
@@ -51,6 +83,28 @@ app.get('/:slug/status/:plate', (req, res) => {
 // Middleware de manejo de errores
 app.use((err, req, res, next) => {
   console.error('Error no manejado:', err);
+
+  if (err && err.code === '23505') {
+    return res.status(409).json({
+      error: 'CONFLICT',
+      message: 'Conflicto de datos: ya existe un registro con esos valores.'
+    });
+  }
+
+  if (err && err.name === 'JsonWebTokenError') {
+    return res.status(401).json({
+      error: 'INVALID_TOKEN',
+      message: 'Token inválido.'
+    });
+  }
+
+  if (err && err.name === 'TokenExpiredError') {
+    return res.status(401).json({
+      error: 'TOKEN_EXPIRED',
+      message: 'Token expirado.'
+    });
+  }
+
   res.status(500).json({
     error: 'INTERNAL_ERROR',
     message: 'Error interno del servidor'
@@ -74,7 +128,7 @@ const startServer = async () => {
     // Iniciar servidor
     app.listen(PORT, () => {
       console.log(`
-    🚗 TallerFlow v0.4.0 - PostgreSQL + Multi-taller
+    🚗 TallerFlow v0.5.0 - Seguridad mínima producción
 🟢 Servidor iniciado en http://localhost:${PORT}
 📊 Base de datos PostgreSQL conectada (3 tablas)
 🏭 Soporte multi-taller activo

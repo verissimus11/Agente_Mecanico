@@ -1,10 +1,13 @@
 const express = require('express');
 const Workshop = require('../models/Workshop');
+const { authenticate, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
 
+router.use(authenticate);
+
 // GET /workshops - Listar talleres activos
-router.get('/', async (req, res) => {
+router.get('/', requireRole(['owner', 'mechanic']), async (req, res) => {
   try {
     const workshops = await Workshop.listActive();
     res.json({
@@ -22,7 +25,7 @@ router.get('/', async (req, res) => {
 });
 
 // POST /workshops - Crear nuevo taller
-router.post('/', async (req, res) => {
+router.post('/', requireRole(['owner']), async (req, res) => {
   try {
     const { name, slug } = req.body;
 
@@ -67,7 +70,7 @@ router.post('/', async (req, res) => {
 });
 
 // GET /workshops/:slug - Obtener taller por slug
-router.get('/:slug', async (req, res) => {
+router.get('/:slug', requireRole(['owner', 'mechanic']), async (req, res) => {
   try {
     const workshop = await Workshop.findBySlug(req.params.slug);
     if (!workshop) {

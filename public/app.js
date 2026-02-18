@@ -2,6 +2,7 @@
 let selectedVehicleId = null;
 let vehicles = [];
 let currentWorkshop = null;
+let authToken = localStorage.getItem('panelToken') || '';
 
 // Elementos del DOM
 const vehicleForm = document.getElementById('vehicleForm');
@@ -46,17 +47,92 @@ const STATUS_CLASSES = {
 
 document.addEventListener('DOMContentLoaded', initializeApp);
 
-function initializeApp() {
+async function initializeApp() {
+    const authenticated = await ensureAuthenticated();
+    if (!authenticated) {
+        showMessage('No se pudo autenticar el panel. Recarga la página e intenta de nuevo.', 'error', 7000);
+        return;
+    }
+
     setupEventListeners();
     setStatusButtonsEnabled(false);
     updateSelectionState();
-    loadWorkshopInfo();
-    loadVehicles();
+    await loadWorkshopInfo();
+    await loadVehicles();
+}
+
+async function ensureAuthenticated() {
+    if (authToken) {
+        const valid = await validateToken(authToken);
+        if (valid) return true;
+    }
+
+    const username = window.prompt('Usuario del panel (owner/mecanico):');
+    const password = window.prompt('Contraseña del panel:');
+
+    if (!username || !password) {
+        return false;
+    }
+
+    try {
+        const response = await fetch('/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+        const result = await response.json();
+        if (!response.ok || !result.token) {
+            showMessage(result.message || 'Credenciales inválidas.', 'error', 5000);
+            return false;
+        }
+
+        authToken = result.token;
+        localStorage.setItem('panelToken', authToken);
+        return true;
+    } catch (error) {
+        return false;
+    }
+}
+
+async function validateToken(token) {
+    try {
+        const response = await fetch('/auth/me', {
+            headers: {
+                Authorization: `Bearer ${token}`
+            }
+        });
+        return response.ok;
+    } catch (error) {
+        return false;
+    }
+}
+
+function getAuthHeaders(extraHeaders = {}) {
+    const headers = { ...extraHeaders };
+    if (authToken) {
+        headers.Authorization = `Bearer ${authToken}`;
+    }
+    return headers;
+}
+
+async function apiFetch(url, options = {}) {
+    const opts = { ...options };
+    opts.headers = getAuthHeaders(options.headers || {});
+
+    const response = await fetch(url, opts);
+
+    if (response.status === 401) {
+        localStorage.removeItem('panelToken');
+        authToken = '';
+        throw new Error('UNAUTHORIZED');
+    }
+
+    return response;
 }
 
 async function loadWorkshopInfo() {
     try {
-        const res = await fetch('/workshops');
+        const res = await apiFetch('/workshops');
         const result = await res.json();
         if (result.success && result.data && result.data.length > 0) {
             currentWorkshop = result.data[0];
@@ -66,7 +142,9 @@ async function loadWorkshopInfo() {
             }
         }
     } catch (e) {
-        // Non-critical, silently ignore
+        if (e && e.message === 'UNAUTHORIZED') {
+            showMessage('Sesión expirada. Recarga para volver a iniciar sesión.', 'error', 6000);
+        }
     }
 }
 
@@ -96,6 +174,14 @@ function setupEventListeners() {
     statusButtons.esperandoPieza.addEventListener('click', () => updateVehicleStatus('ESPERANDO_PIEZA'));
     statusButtons.presupuestoPendiente.addEventListener('click', () => updateVehicleStatus('PRESUPUESTO_PENDIENTE'));
     statusButtons.listo.addEventListener('click', () => updateVehicleStatus('LISTO'));
+}
+
+function handleApiError(error, fallbackMessage) {
+    if (error && error.message === 'UNAUTHORIZED') {
+        showMessage('Sesión expirada. Recarga para volver a iniciar sesión.', 'error', 6000);
+        return;
+    }
+    showMessage(fallbackMessage, 'error');
 }
 
 function normalizePlate(plate) {
@@ -177,7 +263,7 @@ async function handleVehicleSubmit(event) {
     };
 
     try {
-        const response = await fetch('/vehicles', {
+        const response = await apiFetch('/vehicles', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -206,13 +292,13 @@ async function handleVehicleSubmit(event) {
 
         showMessage(result.message || 'Error al registrar vehículo.', 'error');
     } catch (error) {
-        showMessage('Error de conexión. Intenta nuevamente.', 'error');
+        handleApiError(error, 'Error de conexión. Intenta nuevamente.');
     }
 }
 
 async function loadVehicles() {
     try {
-        const response = await fetch('/vehicles?active=true');
+        const response = await apiFetch('/vehicles?active=true');
         const result = await response.json();
 
         if (!response.ok) {
@@ -229,7 +315,7 @@ async function loadVehicles() {
         renderVehiclesTable();
         updateSelectionState();
     } catch (error) {
-        showMessage('Error de conexión al cargar vehículos.', 'error');
+        handleApiError(error, 'Error de conexión al cargar vehículos.');
     }
 }
 
@@ -323,7 +409,7 @@ async function updateVehicleStatus(newStatus) {
             activeButton.innerHTML = '<span class="loading"></span> Actualizando...';
         }
 
-        const response = await fetch(`/vehicles/${selectedVehicleId}/status`, {
+        const response = await apiFetch(`/vehicles/${selectedVehicleId}/status`, {
             method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json'
@@ -341,7 +427,11 @@ async function updateVehicleStatus(newStatus) {
             showMessage('Error al actualizar. Intenta nuevamente.', 'error', 3000);
         }
     } catch (error) {
-        showMessage('Error al actualizar. Intenta nuevamente.', 'error', 3000);
+        if (error && error.message === 'UNAUTHORIZED') {
+            showMessage('Sesión expirada. Recarga para volver a iniciar sesión.', 'error', 6000);
+        } else {
+            showMessage('Error al actualizar. Intenta nuevamente.', 'error', 3000);
+        }
     } finally {
         Object.values(statusButtons).forEach((button) => {
             const originalHtml = originalHtmlByButton.get(button);
@@ -440,7 +530,7 @@ document.getElementById('editForm').addEventListener('submit', async (e) => {
     if (rawPhone && phoneResult.valid) body.phone = phoneResult.formatted;
 
     try {
-        const response = await fetch(`/vehicles/${vehicleId}`, {
+        const response = await apiFetch(`/vehicles/${vehicleId}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body)
@@ -456,7 +546,7 @@ document.getElementById('editForm').addEventListener('submit', async (e) => {
             showMessage(result.message || 'Error al guardar cambios.', 'error');
         }
     } catch (error) {
-        showMessage('Error de conexión. Intenta nuevamente.', 'error');
+        handleApiError(error, 'Error de conexión. Intenta nuevamente.');
     }
 });
 

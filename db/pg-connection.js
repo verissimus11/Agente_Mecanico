@@ -75,6 +75,8 @@ const initializeDatabase = async () => {
     await pool.query('CREATE INDEX IF NOT EXISTS idx_vehicles_phone ON vehicles(phone)');
     await pool.query('CREATE INDEX IF NOT EXISTS idx_vehicles_active ON vehicles(active)');
     await pool.query('CREATE INDEX IF NOT EXISTS idx_vehicles_workshop ON vehicles(workshop_id)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_vehicles_workshop_active_updated ON vehicles(workshop_id, active, updated_at DESC)');
+    await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS uniq_vehicles_active_plate_per_workshop ON vehicles(workshop_id, plate) WHERE active = TRUE');
 
     // 3. Crear tabla vehicle_logs
     await pool.query(`
@@ -88,6 +90,7 @@ const initializeDatabase = async () => {
     `);
     await pool.query('CREATE INDEX IF NOT EXISTS idx_vehicle_logs_vehicle ON vehicle_logs(vehicle_id)');
     await pool.query('CREATE INDEX IF NOT EXISTS idx_vehicle_logs_created ON vehicle_logs(created_at)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_vehicle_logs_vehicle_created ON vehicle_logs(vehicle_id, created_at)');
 
     console.log('✅ Base de datos PostgreSQL inicializada correctamente (3 tablas)');
 
