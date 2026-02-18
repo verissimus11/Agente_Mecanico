@@ -1,3 +1,5 @@
+// Middleware de autenticación para panel interno (owner/mecánico).
+// Emite y valida JWT, y aplica control de rol por ruta.
 const jwt = require('jsonwebtoken');
 
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '12h';
@@ -26,7 +28,7 @@ function getConfiguredUsers() {
       username: process.env.MECHANIC_USERNAME || 'mecanico',
       password: process.env.MECHANIC_PASSWORD || 'mecanico12345',
       role: 'mechanic',
-      workshopSlug: process.env.MECHANIC_WORKSHOP_SLUG || 'taller-demo'
+      workshopSlug: process.env.MECHANIC_WORKSHOP_SLUG || 'alua-odon-motor'
     }
   ];
 }

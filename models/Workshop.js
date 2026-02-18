@@ -46,12 +46,13 @@ class Workshop {
     return await allQuery(query);
   }
 
-  // Obtener o crear taller por defecto (para migración)
+  // Obtener o crear taller por defecto para primer piloto
+  // Este taller se usa cuando no se especifica contexto y para inicializar entorno.
   static async getOrCreateDefault() {
-    const DEFAULT_SLUG = 'taller-demo';
+    const DEFAULT_SLUG = 'alua-odon-motor';
     let workshop = await Workshop.findBySlug(DEFAULT_SLUG);
     if (!workshop) {
-      workshop = await Workshop.create('Taller Demo', DEFAULT_SLUG);
+      workshop = await Workshop.create('Alua Odón Motor', DEFAULT_SLUG);
       console.log(`🏭 Taller por defecto creado: ${workshop.name} (${workshop.slug})`);
     }
     return workshop;

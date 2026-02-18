@@ -1,3 +1,8 @@
+// Lance Workshop - entrypoint
+// Este servidor expone:
+// - Panel interno (owner/mecánico) protegido por JWT
+// - API pública de tracking limitada a slug + matrícula
+// - Middleware global de seguridad (helmet/cors/rate-limit)
 // Cargar variables de entorno PRIMERO
 require('dotenv').config();
 
@@ -128,7 +133,7 @@ const startServer = async () => {
     // Iniciar servidor
     app.listen(PORT, () => {
       console.log(`
-    🚗 TallerFlow v0.5.0 - Seguridad mínima producción
+    🚗 Lance Workshop v0.5.1 - Piloto listo (mínimo seguro)
 🟢 Servidor iniciado en http://localhost:${PORT}
 📊 Base de datos PostgreSQL conectada (3 tablas)
 🏭 Soporte multi-taller activo

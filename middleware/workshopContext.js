@@ -1,3 +1,7 @@
+// Resuelve SIEMPRE el contexto de taller para rutas operativas.
+// - Mecánico: taller fijo desde token/.env
+// - Owner: puede seleccionar taller por header/query
+// Este middleware evita fuga de datos entre talleres.
 const Workshop = require('../models/Workshop');
 
 async function resolveWorkshopContext(req, res, next) {
@@ -6,7 +10,7 @@ async function resolveWorkshopContext(req, res, next) {
     let workshopSlug;
 
     if (role === 'mechanic') {
-      workshopSlug = req.user?.workshopSlug || process.env.MECHANIC_WORKSHOP_SLUG || 'taller-demo';
+      workshopSlug = req.user?.workshopSlug || process.env.MECHANIC_WORKSHOP_SLUG || 'alua-odon-motor';
     } else {
       workshopSlug = req.headers['x-workshop-slug'] || req.query.workshop || req.user?.workshopSlug;
     }

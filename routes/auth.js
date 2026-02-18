@@ -3,6 +3,8 @@ const { findUser, signUserToken, authenticate } = require('../middleware/auth');
 
 const router = express.Router();
 
+// POST /auth/login
+// Valida credenciales de panel y devuelve JWT con rol + contexto de taller.
 router.post('/login', (req, res) => {
   const { username, password } = req.body || {};
 
@@ -33,6 +35,8 @@ router.post('/login', (req, res) => {
   });
 });
 
+// GET /auth/me
+// Devuelve usuario autenticado para validar sesión en frontend.
 router.get('/me', authenticate, (req, res) => {
   return res.json({
     success: true,

@@ -4,6 +4,7 @@ const { authenticate, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
 
+// Talleres: lectura para owner/mechanic, escritura solo owner.
 router.use(authenticate);
 
 // GET /workshops - Listar talleres activos

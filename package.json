@@ -1,7 +1,7 @@
 {
   "name": "taller-control-vehicular",
-  "version": "0.5.0",
-  "description": "Sistema de control vehicular multi-taller con seguimiento público - TallerFlow",
+  "version": "0.5.1",
+  "description": "Lance Workshop - Sistema de control vehicular multi-taller con seguimiento público",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -13,7 +13,7 @@
     "control",
     "mecanico"
   ],
-  "author": "Grupo Lance",
+  "author": "Lance System",
   "license": "MIT",
   "dependencies": {
     "cors": "^2.8.5",

@@ -1,3 +1,5 @@
+// Controlador público de tracking.
+// Importante: responde solo datos operativos mínimos, nunca información interna sensible.
 const Vehicle = require('../models/Vehicle');
 const VehicleLog = require('../models/VehicleLog');
 const Workshop = require('../models/Workshop');
