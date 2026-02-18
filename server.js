@@ -1,13 +1,13 @@
+// Cargar variables de entorno PRIMERO
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const { testConnection } = require('./db/sqlite-connection');
+const { testConnection, closePool } = require('./db/pg-connection');
 const vehicleRoutes = require('./routes/vehicles');
 const workshopRoutes = require('./routes/workshops');
 const publicRoutes = require('./routes/public');
-
-// Cargar variables de entorno
-require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -74,9 +74,9 @@ const startServer = async () => {
     // Iniciar servidor
     app.listen(PORT, () => {
       console.log(`
-    🚗 TallerFlow v0.3.0 - Multi-taller + Seguimiento Público
+    🚗 TallerFlow v0.4.0 - PostgreSQL + Multi-taller
 🟢 Servidor iniciado en http://localhost:${PORT}
-📊 Base de datos SQLite conectada (3 tablas)
+📊 Base de datos PostgreSQL conectada (3 tablas)
 🏭 Soporte multi-taller activo
 📍 Seguimiento público: /:slug/status/:plate
 ⚡ Sistema listo
@@ -90,13 +90,15 @@ const startServer = async () => {
 };
 
 // Manejo de cierre graceful
-process.on('SIGINT', () => {
+process.on('SIGINT', async () => {
   console.log('\n🔄 Cerrando servidor...');
+  await closePool();
   process.exit(0);
 });
 
-process.on('SIGTERM', () => {
+process.on('SIGTERM', async () => {
   console.log('\n🔄 Cerrando servidor...');
+  await closePool();
   process.exit(0);
 });
 

@@ -271,7 +271,7 @@ function renderVehiclesTable() {
             <td>${formatDate(vehicle.updated_at)}</td>
             <td class="actions-cell" onclick="event.stopPropagation()">
                 <button class="btn-action btn-edit" onclick="openEditModal('${vehicle.id}')" title="Editar datos">✏️</button>
-                ${trackUrl ? `<button class="btn-action btn-track" onclick="openTracking('${trackUrl}')" title="Ver seguimiento público">🔗</button>` : ''}
+                ${trackUrl ? `<button class="btn-action btn-track btn-status" onclick="openTracking('${trackUrl}')" title="Ir a status del cliente">Status</button>` : ''}
             </td>
         </tr>
     `}).join('');

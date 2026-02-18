@@ -1,4 +1,4 @@
-const { runQuery, getQuery, allQuery } = require('../db/sqlite-connection');
+const { runQuery, getQuery, allQuery } = require('../db/pg-connection');
 const { v4: uuidv4 } = require('uuid');
 
 class Vehicle {
@@ -44,13 +44,13 @@ class Vehicle {
     
     const query = `
       INSERT INTO vehicles (id, workshop_id, plate, phone, status, active)
-      VALUES (?, ?, ?, ?, ?, ?)
+      VALUES ($1, $2, $3, $4, $5, TRUE)
     `;
     
-    const values = [id, workshopId, normalizedPlate, phone, this.STATUSES.EN_REVISION, 1];
+    const values = [id, workshopId, normalizedPlate, phone, this.STATUSES.EN_REVISION];
     await runQuery(query, values);
     
-    const created = await getQuery('SELECT * FROM vehicles WHERE id = ?', [id]);
+    const created = await getQuery('SELECT * FROM vehicles WHERE id = $1', [id]);
     return created;
   }
 
@@ -58,7 +58,7 @@ class Vehicle {
   static async getActive(workshopId) {
     const query = `
       SELECT * FROM vehicles 
-      WHERE workshop_id = ? AND active = 1 
+      WHERE workshop_id = $1 AND active = TRUE 
       ORDER BY updated_at DESC
     `;
     return await allQuery(query, [workshopId]);
@@ -68,14 +68,14 @@ class Vehicle {
   static async updateStatus(id, workshopId, status, lastEvent = null) {
     const query = `
       UPDATE vehicles 
-      SET status = ?, last_event = ?, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ? AND workshop_id = ? AND active = 1
+      SET status = $1, last_event = $2, updated_at = NOW()
+      WHERE id = $3 AND workshop_id = $4 AND active = TRUE
     `;
     
     const values = [status, lastEvent, id, workshopId];
     await runQuery(query, values);
     
-    const updated = await getQuery('SELECT * FROM vehicles WHERE id = ? AND workshop_id = ?', [id, workshopId]);
+    const updated = await getQuery('SELECT * FROM vehicles WHERE id = $1 AND workshop_id = $2', [id, workshopId]);
     return updated;
   }
 
@@ -83,7 +83,7 @@ class Vehicle {
   static async findByPhone(workshopId, phone) {
     const query = `
       SELECT * FROM vehicles 
-      WHERE workshop_id = ? AND phone = ? AND active = 1
+      WHERE workshop_id = $1 AND phone = $2 AND active = TRUE
       ORDER BY updated_at DESC
       LIMIT 1
     `;
@@ -95,7 +95,7 @@ class Vehicle {
     const normalizedPlate = plate.trim().toUpperCase().replace(/\s+/g, '');
     const query = `
       SELECT * FROM vehicles 
-      WHERE workshop_id = ? AND plate = ? AND active = 1
+      WHERE workshop_id = $1 AND plate = $2 AND active = TRUE
       ORDER BY updated_at DESC
       LIMIT 1
     `;
@@ -106,7 +106,7 @@ class Vehicle {
   static async findById(id, workshopId) {
     const query = `
       SELECT * FROM vehicles 
-      WHERE id = ? AND workshop_id = ? AND active = 1
+      WHERE id = $1 AND workshop_id = $2 AND active = TRUE
     `;
     return await getQuery(query, [id, workshopId]);
   }
@@ -115,28 +115,29 @@ class Vehicle {
   static async updateData(id, workshopId, updates) {
     const fields = [];
     const values = [];
+    let paramIndex = 1;
 
     if (updates.plate !== undefined) {
-      fields.push('plate = ?');
+      fields.push(`plate = $${paramIndex++}`);
       values.push(updates.plate.trim().toUpperCase().replace(/\s+/g, ''));
     }
     if (updates.phone !== undefined) {
-      fields.push('phone = ?');
+      fields.push(`phone = $${paramIndex++}`);
       values.push(updates.phone);
     }
 
     if (fields.length === 0) return null;
 
-    fields.push('updated_at = CURRENT_TIMESTAMP');
+    fields.push('updated_at = NOW()');
     values.push(id, workshopId);
 
     const query = `
       UPDATE vehicles
       SET ${fields.join(', ')}
-      WHERE id = ? AND workshop_id = ? AND active = 1
+      WHERE id = $${paramIndex++} AND workshop_id = $${paramIndex++} AND active = TRUE
     `;
     await runQuery(query, values);
-    return await getQuery('SELECT * FROM vehicles WHERE id = ? AND workshop_id = ?', [id, workshopId]);
+    return await getQuery('SELECT * FROM vehicles WHERE id = $1 AND workshop_id = $2', [id, workshopId]);
   }
 
   // Buscar por matrícula y workshop_id (para endpoint público)
@@ -145,7 +146,7 @@ class Vehicle {
     const query = `
       SELECT id, plate, status, updated_at
       FROM vehicles 
-      WHERE workshop_id = ? AND plate = ? AND active = 1
+      WHERE workshop_id = $1 AND plate = $2 AND active = TRUE
       ORDER BY updated_at DESC
       LIMIT 1
     `;

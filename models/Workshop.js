@@ -1,4 +1,4 @@
-const { runQuery, getQuery, allQuery } = require('../db/sqlite-connection');
+const { runQuery, getQuery, allQuery } = require('../db/pg-connection');
 const { v4: uuidv4 } = require('uuid');
 
 class Workshop {
@@ -9,11 +9,11 @@ class Workshop {
 
     const query = `
       INSERT INTO workshops (id, name, slug, active)
-      VALUES (?, ?, ?, 1)
+      VALUES ($1, $2, $3, TRUE)
     `;
 
     await runQuery(query, [id, name.trim(), normalizedSlug]);
-    const created = await getQuery('SELECT * FROM workshops WHERE id = ?', [id]);
+    const created = await getQuery('SELECT * FROM workshops WHERE id = $1', [id]);
     return created;
   }
 
@@ -22,7 +22,7 @@ class Workshop {
     const normalizedSlug = Workshop.normalizeSlug(slug);
     const query = `
       SELECT * FROM workshops
-      WHERE slug = ? AND active = 1
+      WHERE slug = $1 AND active = TRUE
     `;
     return await getQuery(query, [normalizedSlug]);
   }
@@ -31,7 +31,7 @@ class Workshop {
   static async findById(id) {
     const query = `
       SELECT * FROM workshops
-      WHERE id = ? AND active = 1
+      WHERE id = $1 AND active = TRUE
     `;
     return await getQuery(query, [id]);
   }
@@ -40,7 +40,7 @@ class Workshop {
   static async listActive() {
     const query = `
       SELECT * FROM workshops
-      WHERE active = 1
+      WHERE active = TRUE
       ORDER BY name ASC
     `;
     return await allQuery(query);
