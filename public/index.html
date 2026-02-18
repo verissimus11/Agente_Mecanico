@@ -7,12 +7,42 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+    <!-- PANTALLA DE LOGIN -->
+    <div id="loginScreen" class="login-screen">
+        <div class="login-card">
+            <h1 class="login-logo">Lance Workshop</h1>
+            <p class="login-subtitle">Iniciar sesión en el panel</p>
+            <form id="loginForm" class="login-form">
+                <div class="form-group">
+                    <label for="loginUser">Usuario</label>
+                    <input type="text" id="loginUser" placeholder="owner / mecanico" autocomplete="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="loginPass">Contraseña</label>
+                    <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password" required>
+                </div>
+                <div id="loginError" class="login-error" style="display:none;"></div>
+                <button type="submit" class="btn btn-primary btn-large login-btn" id="loginBtn">Entrar</button>
+            </form>
+            <p class="login-footer">Powered by Lance System</p>
+        </div>
+    </div>
+
+    <!-- PANEL PRINCIPAL (oculto hasta login) -->
+    <div id="panelScreen" style="display: none;">
     <header class="header">
         <div class="container">
             <h1 class="logo">Lance Workshop</h1>
             <p class="powered-by">Powered by Lance System</p>
             <p class="subtitle">Sistema de Control Vehicular</p>
             <p class="workshop-label" id="workshopLabel"></p>
+            <div class="workshop-switch" id="workshopSwitch" style="display: none;">
+                <label for="workshopSelect">Taller activo:</label>
+                <select id="workshopSelect"></select>
+                <button class="btn btn-small btn-manage-workshops" id="manageWorkshopsBtn" title="Gestionar talleres">⚙️</button>
+                <button class="btn btn-small btn-manage-users" id="manageUsersBtn" title="Gestionar mecánicos">👤</button>
+            </div>
+            <button class="btn btn-small btn-logout" id="logoutBtn" title="Cerrar sesión">🚪 Salir</button>
         </div>
     </header>
 
@@ -65,7 +95,9 @@
                             <tr>
                                 <th>Matrícula</th>
                                 <th>Teléfono</th>
+                                <th>Entrada por</th>
                                 <th>Estado</th>
+                                <th>Último cambio por</th>
                                 <th>Última Actualización</th>
                                 <th>Acciones</th>
                             </tr>
@@ -92,18 +124,43 @@
                 <p id="statusSectionInstruction" class="help-text">Selecciona un vehículo para cambiar el estado.</p>
                 
                 <div class="status-buttons">
+                    <button id="statusEsperandoRevision" class="btn btn-status btn-awaiting-review" disabled>
+                        Esperando Revisión
+                    </button>
                     <button id="statusEnRevision" class="btn btn-status btn-revision" disabled>
                         En Revisión
-                    </button>
-                    <button id="statusEsperandoPieza" class="btn btn-status btn-waiting" disabled>
-                        Esperando Pieza
                     </button>
                     <button id="statusPresupuestoPendiente" class="btn btn-status btn-budget" disabled>
                         Presupuesto Pendiente
                     </button>
+                    <button id="statusEsperandoPieza" class="btn btn-status btn-waiting" disabled>
+                        Esperando Pieza
+                    </button>
+                    <button id="statusMontandoPieza" class="btn btn-status btn-mounting" disabled>
+                        Montando Pieza
+                    </button>
                     <button id="statusListo" class="btn btn-status btn-ready" disabled>
                         Listo
                     </button>
+                </div>
+
+                <div id="waitingPiecePanel" class="waiting-piece-panel" style="display: none;">
+                    <h3>Seleccionar sistema y pieza</h3>
+                    <div class="waiting-piece-grid">
+                        <div class="form-group waiting-buttons-group">
+                            <label>Sistema general</label>
+                            <div id="repairSystemButtons" class="option-buttons"></div>
+                        </div>
+                        <div class="form-group waiting-buttons-group">
+                            <label>Pieza</label>
+                            <div id="repairPartButtons" class="option-buttons"></div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="repairNoteInput">Nota (opcional)</label>
+                        <input type="text" id="repairNoteInput" maxlength="120" placeholder="Ej: Pendiente proveedor / referencia exacta">
+                    </div>
+                    <button id="applyEsperandoPiezaBtn" class="btn btn-primary">Aplicar Esperando Pieza</button>
                 </div>
                 
                 <div id="selectedVehicleInfo" class="selected-info">
@@ -118,7 +175,7 @@
         <div class="modal">
             <div class="modal-header">
                 <h3>✏️ Editar Vehículo</h3>
-                <button class="modal-close" onclick="closeEditModal()">&times;</button>
+                <button class="modal-close" id="closeEditModalBtn">&times;</button>
             </div>
             <form id="editForm">
                 <input type="hidden" id="editVehicleId">
@@ -133,10 +190,76 @@
                     </div>
                 </div>
                 <div class="modal-actions">
-                    <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Cancelar</button>
+                    <button type="button" class="btn btn-secondary" id="cancelEditModalBtn">Cancelar</button>
                     <button type="submit" class="btn btn-primary">Guardar Cambios</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Modal de gestión de talleres -->
+    <div id="workshopModal" class="modal-overlay" style="display: none;">
+        <div class="modal modal-wide">
+            <div class="modal-header">
+                <h3>🏭 Gestión de Talleres</h3>
+                <button class="modal-close" id="closeWorkshopModalBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Formulario para agregar taller -->
+                <div class="workshop-add-form">
+                    <h4>Agregar nuevo taller</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="newWorkshopName">Nombre del taller</label>
+                            <input type="text" id="newWorkshopName" placeholder="Ej: Taller García" maxlength="60">
+                        </div>
+                        <button type="button" class="btn btn-primary" id="addWorkshopBtn">+ Agregar</button>
+                    </div>
+                </div>
+
+                <!-- Lista de talleres -->
+                <div class="workshop-list-section">
+                    <h4>Talleres activos</h4>
+                    <div id="workshopListManage" class="workshop-list-manage">
+                        <!-- Se llena dinámicamente -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de gestión de usuarios mecánicos -->
+    <div id="usersModal" class="modal-overlay" style="display: none;">
+        <div class="modal modal-wide">
+            <div class="modal-header">
+                <h3>👤 Mecánicos del Taller Activo</h3>
+                <button class="modal-close" id="closeUsersModalBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="workshop-add-form">
+                    <h4>Crear usuario mecánico</h4>
+                    <div class="form-row users-form-row">
+                        <div class="form-group">
+                            <label for="newMechanicName">Nombre mecánico</label>
+                            <input type="text" id="newMechanicName" placeholder="Ej: Carlos Muñoz" maxlength="60">
+                        </div>
+                        <div class="form-group">
+                            <label for="newMechanicUsername">Usuario</label>
+                            <input type="text" id="newMechanicUsername" placeholder="Ej: carlos.m" maxlength="30">
+                        </div>
+                        <div class="form-group">
+                            <label for="newMechanicPassword">Contraseña</label>
+                            <input type="password" id="newMechanicPassword" placeholder="Mínimo 6 caracteres" maxlength="60">
+                        </div>
+                        <button type="button" class="btn btn-primary" id="addMechanicBtn">+ Crear</button>
+                    </div>
+                </div>
+
+                <div class="workshop-list-section">
+                    <h4>Usuarios del taller activo</h4>
+                    <div id="usersListManage" class="workshop-list-manage"></div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -145,6 +268,7 @@
             <p>Powered by Lance System</p>
         </div>
     </footer>
+    </div><!-- fin panelScreen -->
 
     <script src="app.js"></script>
 </body>

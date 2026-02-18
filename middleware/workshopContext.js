@@ -12,6 +12,7 @@ async function resolveWorkshopContext(req, res, next) {
     if (role === 'mechanic') {
       workshopSlug = req.user?.workshopSlug || process.env.MECHANIC_WORKSHOP_SLUG || 'alua-odon-motor';
     } else {
+      // Owner o sin auth: leer de header/query/user
       workshopSlug = req.headers['x-workshop-slug'] || req.query.workshop || req.user?.workshopSlug;
     }
 
@@ -19,10 +20,8 @@ async function resolveWorkshopContext(req, res, next) {
     if (workshopSlug) {
       workshop = await Workshop.findBySlug(workshopSlug);
       if (!workshop) {
-        return res.status(404).json({
-          error: 'WORKSHOP_NOT_FOUND',
-          message: 'Taller no encontrado'
-        });
+        // Si no existe el slug, usar default en vez de error 404
+        workshop = await Workshop.getOrCreateDefault();
       }
     } else {
       workshop = await Workshop.getOrCreateDefault();

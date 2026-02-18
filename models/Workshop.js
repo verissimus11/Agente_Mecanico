@@ -68,6 +68,13 @@ class Workshop {
       .replace(/^-|-$/g, '');         // quitar guiones al inicio/final
   }
 
+  // Desactivar taller (soft delete) - renombra slug para liberar constraint único
+  static async deactivate(id) {
+    const ts = Math.floor(Date.now() / 1000);
+    const query = `UPDATE workshops SET active = FALSE, slug = slug || '-del-' || $2 WHERE id = $1`;
+    await runQuery(query, [id, String(ts)]);
+  }
+
   // Validar slug
   static isValidSlug(slug) {
     const normalized = Workshop.normalizeSlug(slug);

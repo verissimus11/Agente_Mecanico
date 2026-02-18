@@ -15,6 +15,7 @@ const { testConnection, closePool } = require('./db/pg-connection');
 const authRoutes = require('./routes/auth');
 const vehicleRoutes = require('./routes/vehicles');
 const workshopRoutes = require('./routes/workshops');
+const userRoutes = require('./routes/users');
 const publicRoutes = require('./routes/public');
 
 const app = express();
@@ -36,7 +37,9 @@ const trackingRateLimiter = rateLimit({
 
 // Middleware
 app.set('trust proxy', 1);
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: false   // Desactivar CSP para permitir onclick inline
+}));
 app.use(cors({
   origin: process.env.CORS_ORIGIN || true
 }));
@@ -60,6 +63,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/auth', authRoutes);
 app.use('/vehicles', vehicleRoutes);
 app.use('/workshops', workshopRoutes);
+app.use('/users', userRoutes);
 app.use('/api/public', trackingRateLimiter, publicRoutes);
 
 // Ruta principal - servir el frontend admin
@@ -131,10 +135,11 @@ const startServer = async () => {
     await testConnection();
     
     // Iniciar servidor
-    app.listen(PORT, () => {
+    app.listen(PORT, '0.0.0.0', () => {
       console.log(`
     🚗 Lance Workshop v0.5.1 - Piloto listo (mínimo seguro)
 🟢 Servidor iniciado en http://localhost:${PORT}
+🌐 Acceso LAN: http://TU_IP_LOCAL:${PORT}
 📊 Base de datos PostgreSQL conectada (3 tablas)
 🏭 Soporte multi-taller activo
 📍 Seguimiento público: /:slug/status/:plate

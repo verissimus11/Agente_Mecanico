@@ -4,7 +4,9 @@ const { v4: uuidv4 } = require('uuid');
 class Vehicle {
   // Estados permitidos
   static STATUSES = {
+    ESPERANDO_REVISION: 'ESPERANDO_REVISION',
     EN_REVISION: 'EN_REVISION',
+    MONTANDO_PIEZA: 'MONTANDO_PIEZA',
     ESPERANDO_PIEZA: 'ESPERANDO_PIEZA', 
     PRESUPUESTO_PENDIENTE: 'PRESUPUESTO_PENDIENTE',
     LISTO: 'LISTO'
@@ -12,7 +14,9 @@ class Vehicle {
 
   // Traducciones de estados
   static STATUS_TRANSLATIONS = {
+    'ESPERANDO_REVISION': 'Esperando revisión',
     'EN_REVISION': 'En revisión',
+    'MONTANDO_PIEZA': 'Montando pieza',
     'ESPERANDO_PIEZA': 'Esperando pieza',
     'PRESUPUESTO_PENDIENTE': 'Presupuesto pendiente',
     'LISTO': 'Listo'
@@ -38,16 +42,39 @@ class Vehicle {
   }
 
   // Crear nuevo vehículo (requiere workshop_id)
-  static async create(workshopId, plate, phone) {
+  static async create(workshopId, plate, phone, actor = null) {
     const id = uuidv4();
     const normalizedPlate = plate.trim().toUpperCase().replace(/\s+/g, '');
+    const actorUsername = actor?.username || null;
+    const actorName = actor?.name || actor?.username || null;
     
     const query = `
-      INSERT INTO vehicles (id, workshop_id, plate, phone, status, active)
-      VALUES ($1, $2, $3, $4, $5, TRUE)
+      INSERT INTO vehicles (
+        id,
+        workshop_id,
+        plate,
+        phone,
+        status,
+        created_by_username,
+        created_by_name,
+        last_status_by_username,
+        last_status_by_name,
+        active
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, TRUE)
     `;
     
-    const values = [id, workshopId, normalizedPlate, phone, this.STATUSES.EN_REVISION];
+    const values = [
+      id,
+      workshopId,
+      normalizedPlate,
+      phone,
+      this.STATUSES.ESPERANDO_REVISION,
+      actorUsername,
+      actorName,
+      actorUsername,
+      actorName
+    ];
     await runQuery(query, values);
     
     const created = await getQuery('SELECT * FROM vehicles WHERE id = $1', [id]);
@@ -65,14 +92,21 @@ class Vehicle {
   }
 
   // Actualizar status del vehículo (filtrado por workshop_id)
-  static async updateStatus(id, workshopId, status, lastEvent = null) {
+  static async updateStatus(id, workshopId, status, lastEvent = null, actor = null) {
+    const actorUsername = actor?.username || null;
+    const actorName = actor?.name || actor?.username || null;
     const query = `
       UPDATE vehicles 
-      SET status = $1, last_event = $2, updated_at = NOW()
-      WHERE id = $3 AND workshop_id = $4 AND active = TRUE
+      SET
+        status = $1,
+        last_event = $2,
+        last_status_by_username = $3,
+        last_status_by_name = $4,
+        updated_at = NOW()
+      WHERE id = $5 AND workshop_id = $6 AND active = TRUE
     `;
     
-    const values = [status, lastEvent, id, workshopId];
+    const values = [status, lastEvent, actorUsername, actorName, id, workshopId];
     await runQuery(query, values);
     
     const updated = await getQuery('SELECT * FROM vehicles WHERE id = $1 AND workshop_id = $2', [id, workshopId]);

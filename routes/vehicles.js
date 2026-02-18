@@ -5,8 +5,6 @@ const { resolveWorkshopContext } = require('../middleware/workshopContext');
 
 const router = express.Router();
 
-// Todas las rutas de vehículos son internas (panel) y requieren token.
-// El contexto de taller se resuelve en backend para evitar fuga entre talleres.
 router.use(authenticate);
 router.use(resolveWorkshopContext);
 

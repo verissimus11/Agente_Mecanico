@@ -4,7 +4,6 @@ const { authenticate, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Talleres: lectura para owner/mechanic, escritura solo owner.
 router.use(authenticate);
 
 // GET /workshops - Listar talleres activos
@@ -88,6 +87,34 @@ router.get('/:slug', requireRole(['owner', 'mechanic']), async (req, res) => {
 
   } catch (error) {
     console.error('Error buscando taller:', error);
+    res.status(500).json({
+      error: 'INTERNAL_ERROR',
+      message: 'Error interno del servidor'
+    });
+  }
+});
+
+// DELETE /workshops/:slug - Desactivar taller (soft delete)
+router.delete('/:slug', requireRole(['owner']), async (req, res) => {
+  try {
+    const workshop = await Workshop.findBySlug(req.params.slug);
+    if (!workshop) {
+      return res.status(404).json({
+        error: 'WORKSHOP_NOT_FOUND',
+        message: 'Taller no encontrado'
+      });
+    }
+
+    await Workshop.deactivate(workshop.id);
+    console.log(`🗑️ Taller desactivado: ${workshop.name} (${workshop.slug})`);
+
+    res.json({
+      success: true,
+      message: `Taller "${workshop.name}" eliminado correctamente`
+    });
+
+  } catch (error) {
+    console.error('Error eliminando taller:', error);
     res.status(500).json({
       error: 'INTERNAL_ERROR',
       message: 'Error interno del servidor'

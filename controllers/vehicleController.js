@@ -2,6 +2,14 @@ const Vehicle = require('../models/Vehicle');
 const VehicleLog = require('../models/VehicleLog');
 
 class VehicleController {
+  static getActorLabel(user = {}) {
+    const actorName = user?.name || user?.username || 'Sistema';
+    if (String(user?.role || '').toLowerCase() === 'owner') {
+      return `${actorName} (owner)`;
+    }
+    return actorName;
+  }
+
   static handleControllerError(res, error, fallbackMessage = 'Error interno del servidor') {
     if (error?.code === '23505') {
       return res.status(409).json({
@@ -48,6 +56,10 @@ class VehicleController {
     try {
       const { plate, phone } = req.body;
       const workshopId = req.workshopId;
+      const actor = {
+        username: req.user?.username || null,
+        name: req.user?.name || req.user?.username || null
+      };
 
       if (!workshopId) {
         return res.status(400).json({
@@ -91,10 +103,11 @@ class VehicleController {
         });
       }
 
-      const vehicle = await Vehicle.create(workshopId, normalizedPlate, normalizedPhone);
+      const vehicle = await Vehicle.create(workshopId, normalizedPlate, normalizedPhone, actor);
 
       // Crear log inicial
-      await VehicleLog.create(vehicle.id, Vehicle.STATUSES.EN_REVISION, 'Vehículo recibido');
+      const actorLabel = VehicleController.getActorLabel(req.user);
+      await VehicleLog.create(vehicle.id, Vehicle.STATUSES.ESPERANDO_REVISION, `Vehículo recibido por ${actorLabel}`, actor);
       
       console.log(`✅ Vehículo creado: ${vehicle.plate} - ${vehicle.phone} (taller: ${workshopId})`);
       
@@ -134,6 +147,10 @@ class VehicleController {
       const { id } = req.params;
       const { status, last_event } = req.body;
       const workshopId = req.workshopId;
+      const actor = {
+        username: req.user?.username || null,
+        name: req.user?.name || req.user?.username || null
+      };
 
       // Validar que el status sea válido
       if (!Object.values(Vehicle.STATUSES).includes(status)) {
@@ -144,7 +161,7 @@ class VehicleController {
         });
       }
 
-      const vehicle = await Vehicle.updateStatus(id, workshopId, status, last_event);
+      const vehicle = await Vehicle.updateStatus(id, workshopId, status, last_event, actor);
 
       if (!vehicle) {
         return res.status(404).json({
@@ -154,8 +171,14 @@ class VehicleController {
       }
 
       // Crear log de cambio de estado (ATÓMICO con la actualización)
-      const note = last_event || `Estado cambiado a ${Vehicle.STATUS_TRANSLATIONS[status] || status}`;
-      await VehicleLog.create(vehicle.id, status, note);
+      const actorLabel = VehicleController.getActorLabel(req.user);
+      const rawLastEvent = typeof last_event === 'string' ? last_event.trim() : '';
+      const isLegacyGenericNote = /^Estado cambiado a\b/i.test(rawLastEvent);
+      const alreadyHasActorInfo = /cambiado por\b/i.test(rawLastEvent);
+      const note = !rawLastEvent || isLegacyGenericNote
+        ? `Estado cambiado por ${actorLabel}`
+        : (alreadyHasActorInfo ? rawLastEvent : `${rawLastEvent} · Cambiado por ${actorLabel}`);
+      await VehicleLog.create(vehicle.id, status, note, actor);
 
       console.log(`🔄 Estado actualizado: ${vehicle.plate} → ${status}`);
 

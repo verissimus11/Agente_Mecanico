@@ -1,6 +1,7 @@
 // Middleware de autenticación para panel interno (owner/mecánico).
 // Emite y valida JWT, y aplica control de rol por ruta.
 const jwt = require('jsonwebtoken');
+const PanelUser = require('../models/PanelUser');
 
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '12h';
 
@@ -33,15 +34,33 @@ function getConfiguredUsers() {
   ];
 }
 
-function findUser(username, password) {
+async function findUser(username, password) {
   const u = String(username || '').trim();
   const p = String(password || '');
+
+  try {
+    const dbUser = await PanelUser.findByCredentials(u, p);
+    if (dbUser) {
+      return {
+        id: dbUser.id,
+        username: dbUser.username,
+        name: dbUser.name,
+        role: normalizeRole(dbUser.role),
+        workshopSlug: dbUser.workshop_slug || null
+      };
+    }
+  } catch (error) {
+    console.error('Error consultando usuarios de panel en BD:', error.message);
+  }
+
   return getConfiguredUsers().find((user) => user.username === u && user.password === p) || null;
 }
 
 function signUserToken(user) {
   const payload = {
+    uid: user.id || null,
     sub: user.username,
+    name: user.name || user.username,
     role: normalizeRole(user.role),
     workshopSlug: user.workshopSlug || null
   };
@@ -62,7 +81,9 @@ function authenticate(req, res, next) {
 
     const decoded = jwt.verify(token, getJwtSecret());
     req.user = {
+      id: decoded.uid || null,
       username: decoded.sub,
+      name: decoded.name || decoded.sub,
       role: normalizeRole(decoded.role),
       workshopSlug: decoded.workshopSlug || null
     };

@@ -10,25 +10,25 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         :root {
-            --primary: #4f46e5;
-            --primary-dark: #4338ca;
-            --gray-50: #f9fafb;
-            --gray-100: #f3f4f6;
-            --gray-200: #e5e7eb;
-            --gray-300: #d1d5db;
-            --gray-400: #9ca3af;
-            --gray-500: #6b7280;
-            --gray-600: #4b5563;
-            --gray-700: #374151;
-            --gray-800: #1f2937;
-            --gray-900: #111827;
-            --green-50: #f0fdf4;
-            --green-600: #16a34a;
-            --green-700: #166534;
-            --orange-50: #fff7ed;
-            --orange-600: #ea580c;
-            --blue-50: #eff6ff;
-            --blue-600: #2563eb;
+            --primary: #2E6DF6;
+            --primary-dark: #1B2F4A;
+            --gray-50: #F2F4F7;
+            --gray-100: #d7dbe2;
+            --gray-200: #B8BDC6;
+            --gray-300: #7A828E;
+            --gray-400: #7A828E;
+            --gray-500: #7A828E;
+            --gray-600: #2A2F38;
+            --gray-700: #2A2F38;
+            --gray-800: #1B2F4A;
+            --gray-900: #0F1C2E;
+            --green-50: #e8f0ff;
+            --green-600: #1B2F4A;
+            --green-700: #0F1C2E;
+            --orange-50: #F2F4F7;
+            --orange-600: #1B2F4A;
+            --blue-50: #e8f0ff;
+            --blue-600: #1B2F4A;
             --radius: 12px;
             --radius-sm: 8px;
             --shadow: 0 1px 3px rgb(0 0 0 / 0.1);
@@ -122,6 +122,16 @@
             color: var(--gray-600);
             border-color: var(--gray-300);
         }
+        .status-ESPERANDO_REVISION {
+            background: var(--gray-100);
+            color: var(--gray-700);
+            border-color: var(--gray-300);
+        }
+        .status-MONTANDO_PIEZA {
+            background: var(--blue-50);
+            color: var(--blue-600);
+            border-color: #bfdbfe;
+        }
         .status-ESPERANDO_PIEZA {
             background: var(--orange-50);
             color: var(--orange-600);
@@ -211,6 +221,18 @@
             font-weight: 500;
             color: var(--gray-800);
             font-size: 0.95rem;
+        }
+
+        .timeline-badge-latest {
+            display: inline-block;
+            margin-left: 0.5rem;
+            padding: 0.125rem 0.45rem;
+            border-radius: 9999px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: white;
+            background: var(--primary);
+            vertical-align: middle;
         }
 
         .timeline-note {
@@ -344,10 +366,21 @@
 
     <script>
         const STATUS_DISPLAY = {
+            ESPERANDO_REVISION: { label: 'Esperando revisión', icon: '🕒' },
             EN_REVISION: { label: 'En revisión', icon: '🛠' },
+            MONTANDO_PIEZA: { label: 'Montando pieza', icon: '🔩' },
             ESPERANDO_PIEZA: { label: 'Esperando pieza', icon: '📦' },
             PRESUPUESTO_PENDIENTE: { label: 'Presupuesto pendiente', icon: '📄' },
             LISTO: { label: 'Listo para recoger', icon: '✅' }
+        };
+
+        const STATUS_HELP_TEXT = {
+            ESPERANDO_REVISION: 'Tu vehículo está pendiente de diagnóstico inicial por el taller.',
+            EN_REVISION: 'El taller está revisando la avería y comprobando su alcance.',
+            MONTANDO_PIEZA: 'El taller está montando piezas y haciendo comprobaciones finales.',
+            ESPERANDO_PIEZA: 'Estamos a la espera de repuesto para continuar con la reparación.',
+            PRESUPUESTO_PENDIENTE: 'El taller está preparando el presupuesto para tu aprobación.',
+            LISTO: 'La reparación está finalizada y el vehículo está listo para recoger.'
         };
 
         // Extraer slug y plate de la URL
@@ -388,6 +421,40 @@
             document.getElementById('notFoundMessage').textContent = message || 'No se encontró un vehículo activo con esa matrícula.';
         }
 
+        function escapeRegExp(text) {
+            return String(text || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+
+        function getClientFriendlyTimelineNote(log) {
+            const statusLabel = STATUS_DISPLAY[log.status]?.label || '';
+            const statusHelpText = STATUS_HELP_TEXT[log.status] || 'Se registró una actualización del estado de tu vehículo.';
+            const rawNote = String(log.note || '').trim();
+
+            if (!rawNote) {
+                return statusHelpText;
+            }
+
+            if (/^estado cambiado/i.test(rawNote)) {
+                const actorMatch = rawNote.match(/cambiado\s+por\s+(.+)$/i);
+                if (actorMatch && actorMatch[1]) {
+                    return `${statusHelpText} · Cambiado por ${actorMatch[1].trim()}`;
+                }
+                return statusHelpText;
+            }
+
+            let cleaned = rawNote;
+            if (statusLabel) {
+                const prefixRegex = new RegExp(`^${escapeRegExp(statusLabel)}\\s*[·:—\-]?\\s*`, 'i');
+                cleaned = cleaned.replace(prefixRegex, '').trim();
+            }
+
+            if (!cleaned) {
+                return statusHelpText;
+            }
+
+            return cleaned;
+        }
+
         function renderVehicle(data) {
             document.getElementById('loadingState').style.display = 'none';
             document.getElementById('vehicleState').style.display = 'block';
@@ -414,18 +481,22 @@
                 return;
             }
 
-            timelineContainer.innerHTML = data.logs.map((log, index) => {
+            const logsSorted = [...data.logs].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+            timelineContainer.innerHTML = logsSorted.map((log, index) => {
                 const logStatus = STATUS_DISPLAY[log.status] || { label: log.status, icon: '📌' };
-                const isLast = index === data.logs.length - 1;
+                const isLatest = index === 0;
+                const timelineNote = getClientFriendlyTimelineNote(log);
                 return `
                     <div class="timeline-item">
-                        <div class="timeline-dot" ${isLast ? 'style="background: var(--primary);"' : ''}></div>
+                        <div class="timeline-dot" ${isLatest ? 'style="background: var(--primary);"' : ''}></div>
                         <div class="timeline-date">${formatDateTime(log.created_at)}</div>
                         <div class="timeline-status">
                             <span class="timeline-icon">${logStatus.icon}</span>
                             ${logStatus.label}
+                            ${isLatest ? '<span class="timeline-badge-latest">Más reciente</span>' : ''}
                         </div>
-                        ${log.note ? `<div class="timeline-note">${escapeHtml(log.note)}</div>` : ''}
+                        ${timelineNote ? `<div class="timeline-note">${escapeHtml(timelineNote)}</div>` : ''}
                     </div>
                 `;
             }).join('');

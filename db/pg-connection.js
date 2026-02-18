@@ -66,11 +66,19 @@ const initializeDatabase = async () => {
         plate TEXT NOT NULL,
         phone TEXT NOT NULL,
         status TEXT NOT NULL DEFAULT 'EN_REVISION',
+        created_by_username TEXT,
+        created_by_name TEXT,
+        last_status_by_username TEXT,
+        last_status_by_name TEXT,
         last_event TEXT,
         updated_at TIMESTAMPTZ DEFAULT NOW(),
         active BOOLEAN DEFAULT TRUE
       )
     `);
+    await pool.query('ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS created_by_username TEXT');
+    await pool.query('ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS created_by_name TEXT');
+    await pool.query('ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS last_status_by_username TEXT');
+    await pool.query('ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS last_status_by_name TEXT');
     await pool.query('CREATE INDEX IF NOT EXISTS idx_vehicles_plate ON vehicles(plate)');
     await pool.query('CREATE INDEX IF NOT EXISTS idx_vehicles_phone ON vehicles(phone)');
     await pool.query('CREATE INDEX IF NOT EXISTS idx_vehicles_active ON vehicles(active)');
@@ -85,14 +93,34 @@ const initializeDatabase = async () => {
         vehicle_id TEXT NOT NULL REFERENCES vehicles(id),
         status TEXT NOT NULL,
         note TEXT,
+        actor_username TEXT,
+        actor_name TEXT,
         created_at TIMESTAMPTZ DEFAULT NOW()
       )
     `);
+    await pool.query('ALTER TABLE vehicle_logs ADD COLUMN IF NOT EXISTS actor_username TEXT');
+    await pool.query('ALTER TABLE vehicle_logs ADD COLUMN IF NOT EXISTS actor_name TEXT');
     await pool.query('CREATE INDEX IF NOT EXISTS idx_vehicle_logs_vehicle ON vehicle_logs(vehicle_id)');
     await pool.query('CREATE INDEX IF NOT EXISTS idx_vehicle_logs_created ON vehicle_logs(created_at)');
     await pool.query('CREATE INDEX IF NOT EXISTS idx_vehicle_logs_vehicle_created ON vehicle_logs(vehicle_id, created_at)');
 
-    console.log('✅ Base de datos PostgreSQL inicializada correctamente (3 tablas)');
+    // 4. Crear tabla de usuarios del panel (mecánicos gestionados por owner)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS panel_users (
+        id TEXT PRIMARY KEY,
+        workshop_id TEXT REFERENCES workshops(id),
+        username TEXT NOT NULL UNIQUE,
+        password TEXT NOT NULL,
+        name TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'mechanic',
+        active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_panel_users_workshop ON panel_users(workshop_id)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_panel_users_role_active ON panel_users(role, active)');
+
+    console.log('✅ Base de datos PostgreSQL inicializada correctamente (4 tablas)');
 
   } catch (error) {
     console.error('❌ Error inicializando base de datos:', error);

@@ -1,0 +1,137 @@
+LANCE WORKSHOP - CONTROL DE CAMBIOS Y CHECKLIST POST-CAMBIO
+Fecha: 2026-02-18
+
+====================================================
+1) CAMBIOS APLICADOS EN ESTA ITERACIÓN
+====================================================
+
+A) Fix funcional owner (no podía editar/cambiar estado)
+- Se agregó selección explícita de taller en el panel interno para rol owner.
+- El frontend ahora envía el header x-workshop-slug en todas las llamadas API autenticadas.
+- Esto evita que owner quede “atascado” en un taller por defecto sin vehículos.
+
+Archivos:
+- public/index.html
+- public/app.js
+
+B) Estado/buttons más grandes
+- Se aumentó tamaño visual y área táctil de botones de estado (Revisión, Esperando pieza, etc.).
+- Se corrigió conflicto CSS entre botón “Status” de tabla y botones de estado principales.
+
+Archivos:
+- public/styles.css
+- public/app.js
+
+C) Adaptación móvil (prioridad alta)
+- Mejoras responsive en header, selector de taller y botones.
+- Botones de estado más grandes en móvil.
+- Botones de acciones en tabla con mejor tamaño táctil.
+- Tabla mantiene scroll horizontal y celdas más compactas para pantallas pequeñas.
+
+Archivos:
+- public/styles.css
+- public/index.html
+
+====================================================
+2) VALIDACIONES REALIZADAS (PASÓ)
+====================================================
+
+- Owner con x-workshop-slug='taller-demo' puede listar vehículos.
+- Owner puede actualizar estado por API (PATCH /vehicles/:id/status).
+- No hay errores de sintaxis en app.js, styles.css, index.html.
+- Servidor inicia correctamente tras cambios.
+
+====================================================
+3) CHECKLIST OBLIGATORIO DESPUÉS DE CADA CAMBIO
+====================================================
+
+A) Auth y sesión
+[ ] Login owner funciona.
+[ ] Login mecánico funciona.
+[ ] Si token expira, muestra mensaje claro y no rompe el panel.
+
+B) Contexto de taller (evitar fuga de datos)
+[ ] Owner cambia taller en selector y ve datos correctos de ese taller.
+[ ] Mecánico queda restringido a su taller asignado.
+[ ] No aparecen vehículos de otro taller al cambiar contexto.
+
+C) Operación diaria
+[ ] Crear vehículo funciona.
+[ ] Editar matrícula/teléfono funciona.
+[ ] Cambiar estado funciona.
+[ ] Se crea log de estado correctamente.
+[ ] Botón “Status” abre tracking del vehículo correcto.
+
+D) Rutas públicas
+[ ] /:slug/status/:plate funciona.
+[ ] /:slug (sin plate) NO lista datos (404 o neutro).
+[ ] /api/public/:slug sin plate NO lista datos.
+
+E) Responsive / móvil
+[ ] Header no se rompe en 360px.
+[ ] Selector de taller usable en móvil.
+[ ] Botones de estado se pueden pulsar cómodamente.
+[ ] Tabla y acciones se pueden usar sin bloquear UI.
+
+F) Seguridad mínima
+[ ] CORS restringido en producción al dominio real.
+[ ] FORCE_HTTPS=true en producción.
+[ ] JWT_SECRET fuerte (no default).
+[ ] Rate limit tracking activo.
+
+G) Base de datos / continuidad
+[ ] Índices y constraints siguen activos (incluida unicidad por matrícula+taller activo).
+[ ] SNAPSHOTS automáticos DB activados antes de abrir piloto.
+[ ] Se probó al menos un restore.
+
+====================================================
+4) RECORDATORIO CRÍTICO PRE-LIVE
+====================================================
+
+ANTES de abrir la primera versión piloto:
+- Activar snapshots automáticos diarios en PostgreSQL.
+- Confirmar retención mínima (7-14 días).
+- Ejecutar una prueba real de restauración.
+
+Sin esto, no se abre piloto.
+
+====================================================
+5) SI VUELVE A FALLAR “NO FUNCIONA NADA”
+====================================================
+
+Orden rápido de diagnóstico:
+1) Verificar login/token (401/403 en Network).
+2) Verificar taller activo seleccionado en header.
+3) Verificar x-workshop-slug en request headers.
+4) Revisar respuesta API exacta (message/error).
+5) Revisar logs del servidor y DB.
+6) Correr checklist sección 3 completo.
+
+====================================================
+6) HOTFIX EXTRA 2026-02-18 (owner no podía operar)
+====================================================
+
+Problema reportado:
+- Owner no podía seleccionar vehículos, editar, cambiar estado ni abrir status.
+
+Raíz detectada:
+- Faltaba selector claro de taller para owner y el contexto de taller no quedaba explícito en todas las requests.
+- En multi-taller, owner podía quedar en un taller vacío y parecer que "todo está roto".
+- Conflicto de clase CSS entre botón de estado principal y botón pequeño "Status" de la tabla.
+
+Correcciones aplicadas:
+- Selector de taller en header para owner.
+- Header x-workshop-slug enviado desde frontend en TODAS las llamadas autenticadas.
+- Persistencia de taller activo en localStorage.
+- Botones de estado más grandes y táctiles.
+- Renombre de clase del botón pequeño de tabla: btn-track-link.
+- Exposición explícita de funciones a window para onclick inline.
+
+Validación técnica ejecutada:
+- owner: GET /vehicles con taller seleccionado -> OK
+- owner: PATCH /vehicles/:id (editar) -> OK
+- owner: PATCH /vehicles/:id/status -> OK
+- Sin errores de sintaxis en app.js/styles.css/index.html
+
+Dato de limpieza aplicado:
+- Nombre de taller normalizado en DB: "Alua Odon Motor" para evitar caracteres corruptos.
