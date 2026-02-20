@@ -1,4 +1,4 @@
-// Lance Workshop - entrypoint
+// TallerFlow by Lance Systems - entrypoint
 // Este servidor expone:
 // - Panel interno (owner/mecánico) protegido por JWT
 // - API pública de tracking limitada a slug + matrícula
@@ -137,7 +137,7 @@ const startServer = async () => {
     // Iniciar servidor
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`
-    🚗 Lance Workshop v0.5.1 - Piloto listo (mínimo seguro)
+    🚗 TallerFlow v0.6.0 by Lance Systems - Piloto listo
 🟢 Servidor iniciado en http://localhost:${PORT}
 🌐 Acceso LAN: http://TU_IP_LOCAL:${PORT}
 📊 Base de datos PostgreSQL conectada (3 tablas)

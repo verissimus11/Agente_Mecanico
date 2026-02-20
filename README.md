@@ -1,6 +1,6 @@
-# Lance Workshop
+# TallerFlow
 
-Aplicación web para talleres mecánicos desarrollada por **Lance System**.
+Aplicación web para talleres mecánicos desarrollada por **Lance Systems**.
 
 ## Objetivo del sistema
 
@@ -117,6 +117,6 @@ Copiar `.env.example` a `.env` y completar:
 
 ## Marca
 
-- **Empresa:** Lance System
-- **Aplicación:** Lance Workshop
-- Footer: `Powered by Lance System`
+- **Empresa:** Lance Systems
+- **Aplicación:** TallerFlow
+- Footer: `Powered by Lance Systems`
