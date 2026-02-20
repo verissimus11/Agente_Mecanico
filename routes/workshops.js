@@ -124,6 +124,35 @@ router.patch('/:slug/toggle-enabled', requireRole(['owner']), async (req, res) =
   }
 });
 
+// PATCH /workshops/:slug/subdomain - Asignar subdominio a un taller
+router.patch('/:slug/subdomain', requireRole(['owner']), async (req, res) => {
+  try {
+    const workshop = await Workshop.findBySlug(req.params.slug);
+    if (!workshop) {
+      return res.status(404).json({ error: 'WORKSHOP_NOT_FOUND', message: 'Taller no encontrado' });
+    }
+
+    const { subdomain } = req.body;
+    if (subdomain !== null && subdomain !== '') {
+      const clean = subdomain.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+      if (clean.length < 2 || clean.length > 30) {
+        return res.status(400).json({ error: 'INVALID_SUBDOMAIN', message: 'El subdominio debe tener 2-30 caracteres alfanuméricos.' });
+      }
+      // Verificar que no esté en uso por otro taller
+      const existing = await Workshop.findBySubdomain(clean);
+      if (existing && existing.id !== workshop.id) {
+        return res.status(409).json({ error: 'SUBDOMAIN_IN_USE', message: `El subdominio "${clean}" ya está en uso por "${existing.name}".` });
+      }
+    }
+
+    const updated = await Workshop.setSubdomain(workshop.id, subdomain || null);
+    res.json({ success: true, data: updated, message: `Subdominio actualizado para "${workshop.name}"` });
+  } catch (error) {
+    console.error('Error setting subdomain:', error);
+    res.status(500).json({ error: 'INTERNAL_ERROR', message: 'Error interno del servidor' });
+  }
+});
+
 // DELETE /workshops/:slug - Desactivar taller (soft delete)
 router.delete('/:slug', requireRole(['owner']), async (req, res) => {
   try {

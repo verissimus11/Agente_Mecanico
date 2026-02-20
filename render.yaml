@@ -16,7 +16,7 @@ services:
     region: frankfurt
     buildCommand: npm install
     startCommand: node server.js
-    healthCheckPath: /auth/login
+    healthCheckPath: /tallerflow/auth/login
     envVars:
       - key: NODE_ENV
         value: production
@@ -51,7 +51,11 @@ services:
       - key: FORCE_HTTPS
         value: "true"
       - key: CORS_ORIGIN
-        value: "https://tallerflow.onrender.com"
+        value: "https://lancesystems.com"
+      - key: BASE_PATH
+        value: "/tallerflow"
+      - key: APP_DOMAIN
+        value: "lancesystems.com"
       - key: TRACKING_RATE_WINDOW_MS
         value: "900000"
       - key: TRACKING_RATE_MAX

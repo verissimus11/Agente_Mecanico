@@ -1,6 +1,6 @@
 {
   "name": "taller-control-vehicular",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "TallerFlow by Lance Systems - Sistema de control vehicular multi-taller con seguimiento público",
   "main": "server.js",
   "scripts": {

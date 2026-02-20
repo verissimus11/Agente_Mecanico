@@ -1,3 +1,6 @@
+// Base path para todas las llamadas API (inyectado por config.js)
+const BASE_PATH = window.__BASE_PATH || '';
+
 // Variables globales
 let selectedVehicleId = null;
 let vehicles = [];
@@ -180,7 +183,7 @@ function setupLoginForm() {
         btn.textContent = 'Entrando...';
 
         try {
-            const response = await fetch('/auth/login', {
+            const response = await fetch(BASE_PATH + '/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password })
@@ -240,7 +243,7 @@ document.getElementById('logoutBtn').addEventListener('click', logout);
 
 async function validateToken(token) {
     try {
-        const response = await fetch('/auth/me', {
+        const response = await fetch(BASE_PATH + '/auth/me', {
             headers: {
                 Authorization: `Bearer ${token}`
             }
@@ -273,7 +276,7 @@ async function apiFetch(url, options = {}) {
     const opts = { ...options };
     opts.headers = getAuthHeaders(options.headers || {});
 
-    const response = await fetch(url, opts);
+    const response = await fetch(BASE_PATH + url, opts);
 
     if (response.status === 401) {
         logout();
@@ -693,7 +696,7 @@ async function handleVehicleSubmit(event) {
             let msg = result.message;
             const createdVehicle = result.data || null;
             if (currentWorkshop && currentWorkshop.slug && createdVehicle?.tracking_hash) {
-                const trackUrl = `${window.location.origin}/${currentWorkshop.slug}/status/${plate}/${createdVehicle.tracking_hash}`;
+                const trackUrl = `${window.location.origin}${BASE_PATH}/${currentWorkshop.slug}/status/${plate}/${createdVehicle.tracking_hash}`;
                 msg += `\n\n🔗 URL de seguimiento: ${trackUrl}`;
             }
             showMessage(msg, 'success', 6000);
@@ -787,7 +790,7 @@ function renderVehiclesTable() {
 
     vehiclesTableBody.innerHTML = filtered.map((vehicle) => {
         const trackUrl = currentWorkshop && currentWorkshop.slug && vehicle.tracking_hash
-            ? `${window.location.origin}/${currentWorkshop.slug}/status/${vehicle.plate}/${vehicle.tracking_hash}`
+            ? `${window.location.origin}${BASE_PATH}/${currentWorkshop.slug}/status/${vehicle.plate}/${vehicle.tracking_hash}`
             : '';
         const createdBy = vehicle.created_by_name || vehicle.created_by_username || '—';
         const lastStatusBy = vehicle.last_status_by_name || vehicle.last_status_by_username || '—';

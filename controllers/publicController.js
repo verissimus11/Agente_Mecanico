@@ -68,6 +68,37 @@ class PublicController {
       });
     }
   }
+
+  // GET /api/public/subdomain-info - Resolver subdominio actual a datos del taller
+  static async getSubdomainInfo(req, res) {
+    try {
+      const subdomain = req.workshopSubdomain;
+      if (!subdomain) {
+        return res.json({ success: true, workshop: null });
+      }
+
+      // Buscar taller por subdomain (campo subdomain) o por slug que empiece con el subdomain
+      const workshop = await Workshop.findBySubdomain(subdomain);
+      if (!workshop) {
+        return res.status(404).json({
+          error: 'WORKSHOP_NOT_FOUND',
+          message: 'Taller no encontrado para este subdominio.'
+        });
+      }
+
+      return res.json({
+        success: true,
+        workshop: {
+          name: workshop.name,
+          slug: workshop.slug,
+          subdomain: workshop.subdomain || subdomain
+        }
+      });
+    } catch (error) {
+      console.error('❌ Error resolviendo subdominio:', error);
+      res.status(500).json({ error: 'INTERNAL_ERROR', message: 'Error interno.' });
+    }
+  }
 }
 
 module.exports = PublicController;

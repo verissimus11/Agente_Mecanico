@@ -1,9 +1,7 @@
 // TallerFlow by Lance Systems - entrypoint
-// Este servidor expone:
-// - Panel interno (owner/mecánico) protegido por JWT
-// - API pública de tracking limitada a slug + matrícula
-// - Middleware global de seguridad (helmet/cors/rate-limit)
-// Cargar variables de entorno PRIMERO
+// Arquitectura multi-producto: toda la app vive bajo BASE_PATH (/tallerflow)
+// lancesystems.com/tallerflow → panel admin
+// aluaodon.lancesystems.com/tallerflow → tracking del taller
 require('dotenv').config();
 
 const express = require('express');
@@ -17,9 +15,11 @@ const vehicleRoutes = require('./routes/vehicles');
 const workshopRoutes = require('./routes/workshops');
 const userRoutes = require('./routes/users');
 const publicRoutes = require('./routes/public');
+const { subdomainDetector } = require('./middleware/subdomain');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const BASE_PATH = process.env.BASE_PATH || '/tallerflow';
 
 const isProduction = process.env.NODE_ENV === 'production';
 const forceHttps = process.env.FORCE_HTTPS === 'true';
@@ -35,10 +35,10 @@ const trackingRateLimiter = rateLimit({
   }
 });
 
-// Middleware
+// ====== Middleware global ======
 app.set('trust proxy', 1);
 app.use(helmet({
-  contentSecurityPolicy: false   // Desactivar CSP para permitir onclick inline
+  contentSecurityPolicy: false
 }));
 app.use(cors({
   origin: process.env.CORS_ORIGIN || true
@@ -56,40 +56,70 @@ if (isProduction && forceHttps) {
   });
 }
 
-// Servir archivos estáticos
-app.use(express.static(path.join(__dirname, 'public')));
+// Detección de subdominio global (antes del router)
+app.use(subdomainDetector);
+
+// Endpoint para que el frontend sepa el BASE_PATH y subdominio
+app.get(`${BASE_PATH}/config.js`, (req, res) => {
+  res.type('application/javascript');
+  res.send(`window.__BASE_PATH=${JSON.stringify(BASE_PATH)};window.__SUBDOMAIN=${JSON.stringify(req.workshopSubdomain || null)};`);
+});
+
+// ====== Router principal montado en BASE_PATH ======
+const tfRouter = express.Router();
+
+// Archivos estáticos del frontend
+tfRouter.use(express.static(path.join(__dirname, 'public')));
 
 // Rutas API
-app.use('/auth', authRoutes);
-app.use('/vehicles', vehicleRoutes);
-app.use('/workshops', workshopRoutes);
-app.use('/users', userRoutes);
-app.use('/api/public', trackingRateLimiter, publicRoutes);
+tfRouter.use('/auth', authRoutes);
+tfRouter.use('/vehicles', vehicleRoutes);
+tfRouter.use('/workshops', workshopRoutes);
+tfRouter.use('/users', userRoutes);
+tfRouter.use('/api/public', trackingRateLimiter, publicRoutes);
 
-// Ruta principal - servir el frontend admin
-app.get('/', (req, res) => {
+// Página principal
+tfRouter.get('/', (req, res) => {
+  if (req.workshopSubdomain) {
+    return res.sendFile(path.join(__dirname, 'public', 'subdomain-landing.html'));
+  }
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Ruta pública de seguimiento: /:slug/status/:plate/:trackingHash
-app.get('/:slug/status/:plate/:trackingHash', trackingRateLimiter, (req, res) => {
+// Tracking por subdominio: /tallerflow/status/:plate/:trackingHash
+tfRouter.get('/status/:plate/:trackingHash', trackingRateLimiter, (req, res) => {
+  if (!req.workshopSubdomain) {
+    return res.status(404).json({ error: 'NOT_FOUND', message: 'Ruta no encontrada' });
+  }
+  const { plate, trackingHash } = req.params;
+  if (!plate || !trackingHash || plate.length > 20 || trackingHash.length > 128) {
+    return res.status(400).send('Solicitud inválida');
+  }
+  res.sendFile(path.join(__dirname, 'public', 'tracking.html'));
+});
+
+// Tracking clásico: /tallerflow/:slug/status/:plate/:trackingHash
+tfRouter.get('/:slug/status/:plate/:trackingHash', trackingRateLimiter, (req, res) => {
   const { slug, plate, trackingHash } = req.params;
-  // Sanitización básica
   if (!slug || !plate || !trackingHash || slug.length > 50 || plate.length > 20 || trackingHash.length > 128) {
     return res.status(400).send('Solicitud inválida');
   }
-  // Solo servir si el slug tiene formato válido (evitar colisión con rutas estáticas)
   if (/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(slug) || /^[a-z0-9]{2,}$/.test(slug)) {
     res.sendFile(path.join(__dirname, 'public', 'tracking.html'));
   } else {
-    res.status(404).json({
-      error: 'NOT_FOUND',
-      message: 'Ruta no encontrada'
-    });
+    res.status(404).json({ error: 'NOT_FOUND', message: 'Ruta no encontrada' });
   }
 });
 
-// Middleware de manejo de errores
+// Montar toda la app bajo BASE_PATH
+app.use(BASE_PATH, tfRouter);
+
+// Redirigir raíz al panel
+app.get('/', (req, res) => {
+  res.redirect(302, BASE_PATH);
+});
+
+// ====== Manejo de errores ======
 app.use((err, req, res, next) => {
   console.error('Error no manejado:', err);
 
@@ -120,7 +150,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Ruta 404
+// 404
 app.use('*', (req, res) => {
   res.status(404).json({
     error: 'NOT_FOUND',
@@ -128,22 +158,20 @@ app.use('*', (req, res) => {
   });
 });
 
-// Función para iniciar el servidor
+// ====== Arranque ======
 const startServer = async () => {
   try {
-    // Probar conexión a la base de datos
     await testConnection();
     
-    // Iniciar servidor
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`
-    🚗 TallerFlow v0.6.0 by Lance Systems - Piloto listo
-🟢 Servidor iniciado en http://localhost:${PORT}
-🌐 Acceso LAN: http://TU_IP_LOCAL:${PORT}
-📊 Base de datos PostgreSQL conectada (3 tablas)
-🏭 Soporte multi-taller activo
-📍 Seguimiento público: /:slug/status/:plate
-⚡ Sistema listo
+    🚗 TallerFlow v0.7.0 by Lance Systems
+🟢 http://localhost:${PORT}${BASE_PATH}
+🌐 LAN: http://TU_IP_LOCAL:${PORT}${BASE_PATH}
+📊 PostgreSQL conectada
+🏭 Multi-taller + subdominios activos
+📍 Tracking: ${BASE_PATH}/:slug/status/:plate
+⚡ Listo
       `);
     });
     
@@ -153,7 +181,6 @@ const startServer = async () => {
   }
 };
 
-// Manejo de cierre graceful
 process.on('SIGINT', async () => {
   console.log('\n🔄 Cerrando servidor...');
   await closePool();
@@ -166,7 +193,6 @@ process.on('SIGTERM', async () => {
   process.exit(0);
 });
 
-// Iniciar servidor
 startServer();
 
 module.exports = app;

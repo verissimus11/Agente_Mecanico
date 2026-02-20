@@ -82,6 +82,33 @@ class Workshop {
     return await getQuery('SELECT * FROM workshops WHERE id = $1', [id]);
   }
 
+  // Buscar taller por subdomain
+  static async findBySubdomain(subdomain) {
+    if (!subdomain) return null;
+    const clean = subdomain.toLowerCase().trim();
+    // Primero buscar por campo subdomain explícito
+    let workshop = await getQuery(
+      'SELECT * FROM workshops WHERE subdomain = $1 AND active = TRUE',
+      [clean]
+    );
+    if (workshop) return workshop;
+
+    // Fallback: buscar slug que coincida con el subdominio (sin guiones)
+    // Ejemplo: subdomain "aluaodon" → slug "alua-odon-motor" (busca LIKE)
+    workshop = await getQuery(
+      `SELECT * FROM workshops WHERE REPLACE(slug, '-', '') LIKE $1 || '%' AND active = TRUE ORDER BY LENGTH(slug) ASC LIMIT 1`,
+      [clean]
+    );
+    return workshop || null;
+  }
+
+  // Asignar subdomain a un taller
+  static async setSubdomain(id, subdomain) {
+    const clean = subdomain ? subdomain.toLowerCase().trim().replace(/[^a-z0-9]/g, '') : null;
+    await runQuery('UPDATE workshops SET subdomain = $2 WHERE id = $1 AND active = TRUE', [id, clean]);
+    return await getQuery('SELECT * FROM workshops WHERE id = $1', [id]);
+  }
+
   // Validar slug
   static isValidSlug(slug) {
     const normalized = Workshop.normalizeSlug(slug);

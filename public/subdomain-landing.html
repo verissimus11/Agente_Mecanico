@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seguimiento de Vehículo - TallerFlow</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --primary: #2E6DF6;
+            --primary-dark: #1B2F4A;
+            --gray-50: #F2F4F7;
+            --gray-300: #7A828E;
+            --gray-600: #2A2F38;
+            --gray-900: #0F1C2E;
+            --radius: 12px;
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--gray-50);
+            color: var(--gray-900);
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            padding: 2rem 0;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .header p {
+            margin-top: .25rem;
+            opacity: .85;
+            font-size: .95rem;
+        }
+
+        .container {
+            max-width: 480px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            width: 100%;
+            flex: 1;
+        }
+
+        .card {
+            background: white;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-md);
+            padding: 2rem;
+        }
+
+        .card h2 {
+            font-size: 1.1rem;
+            margin-bottom: .25rem;
+        }
+
+        .card p {
+            color: var(--gray-300);
+            font-size: .9rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group { margin-bottom: 1rem; }
+
+        label {
+            display: block;
+            font-weight: 500;
+            font-size: .85rem;
+            margin-bottom: .35rem;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: .65rem .85rem;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: .95rem;
+            font-family: inherit;
+            text-transform: uppercase;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(46, 109, 246, .15);
+        }
+
+        .btn {
+            width: 100%;
+            padding: .75rem;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background .2s;
+        }
+
+        .btn:hover { background: var(--primary-dark); }
+        .btn:disabled { opacity: .6; cursor: not-allowed; }
+
+        .error-msg {
+            display: none;
+            color: #dc2626;
+            font-size: .85rem;
+            margin-top: .75rem;
+            text-align: center;
+        }
+
+        .loading { display: none; text-align: center; padding: 2rem 0; color: var(--gray-300); }
+
+        .footer {
+            text-align: center;
+            padding: 1.5rem 0;
+            color: var(--gray-300);
+            font-size: .8rem;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <h1 id="workshopTitle">Taller</h1>
+        <p>Seguimiento de vehículo</p>
+    </header>
+
+    <div class="container">
+        <div id="loadingWorkshop" class="loading">⏳ Cargando información del taller...</div>
+
+        <div id="searchForm" class="card" style="display:none;">
+            <h2>Consulta tu vehículo</h2>
+            <p>Ingresa la matrícula y el código de seguimiento que recibiste.</p>
+            <form id="trackingForm">
+                <div class="form-group">
+                    <label for="plateInput">Matrícula</label>
+                    <input type="text" id="plateInput" placeholder="1234ABC" required maxlength="20" autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label for="hashInput">Código de seguimiento</label>
+                    <input type="text" id="hashInput" placeholder="Tu código" required maxlength="128" autocomplete="off" style="text-transform:none;">
+                </div>
+                <button type="submit" class="btn" id="searchBtn">Buscar vehículo</button>
+                <div id="errorMsg" class="error-msg"></div>
+            </form>
+        </div>
+
+        <div id="notFoundCard" class="card" style="display:none; text-align:center;">
+            <h2>⚠️ Taller no disponible</h2>
+            <p>No se encontró un taller asociado a este enlace.</p>
+        </div>
+    </div>
+
+    <footer class="footer">
+        Powered by <strong>TallerFlow</strong> · Lance Systems
+    </footer>
+
+    <script src="config.js"></script>
+    <script>
+        const BASE_PATH = window.__BASE_PATH || '';
+        let workshopSlug = null;
+
+        async function init() {
+            const loadingEl = document.getElementById('loadingWorkshop');
+            const formEl = document.getElementById('searchForm');
+            const notFoundEl = document.getElementById('notFoundCard');
+
+            loadingEl.style.display = 'block';
+
+            try {
+                const res = await fetch(BASE_PATH + '/api/public/subdomain-info');
+                const data = await res.json();
+
+                if (res.ok && data.workshop) {
+                    workshopSlug = data.workshop.slug;
+                    document.getElementById('workshopTitle').textContent = data.workshop.name;
+                    document.title = `${data.workshop.name} - TallerFlow`;
+                    loadingEl.style.display = 'none';
+                    formEl.style.display = 'block';
+                } else {
+                    loadingEl.style.display = 'none';
+                    notFoundEl.style.display = 'block';
+                }
+            } catch (e) {
+                loadingEl.style.display = 'none';
+                notFoundEl.style.display = 'block';
+            }
+        }
+
+        document.getElementById('trackingForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const plate = document.getElementById('plateInput').value.trim().toUpperCase();
+            const hash = document.getElementById('hashInput').value.trim();
+            const errorMsg = document.getElementById('errorMsg');
+
+            if (!plate || !hash) {
+                errorMsg.textContent = 'Completa ambos campos.';
+                errorMsg.style.display = 'block';
+                return;
+            }
+
+            if (!workshopSlug) {
+                errorMsg.textContent = 'Error: taller no identificado.';
+                errorMsg.style.display = 'block';
+                return;
+            }
+
+            errorMsg.style.display = 'none';
+            // Navigate to tracking page
+            window.location.href = `${BASE_PATH}/status/${encodeURIComponent(plate)}/${encodeURIComponent(hash)}`;
+        });
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

@@ -365,7 +365,9 @@
         </div>
     </footer>
 
+    <script src="config.js"></script>
     <script>
+        const BASE_PATH = window.__BASE_PATH || '';
         const STATUS_DISPLAY = {
             ESPERANDO_REVISION: { label: 'Esperando revisión', icon: '🕒' },
             EN_REVISION: { label: 'En revisión', icon: '🛠' },
@@ -385,12 +387,39 @@
         };
 
         // Extraer slug y plate de la URL
+        // Soporta dos formatos:
+        //   1) Ruta clásica: /:slug/status/:plate/:trackingHash
+        //   2) Subdominio:   /status/:plate/:trackingHash  (slug viene del subdominio)
+        let _resolvedSubdomainSlug = null;
+
         function parseUrl() {
-            const parts = window.location.pathname.split('/').filter(Boolean);
-            // Esperamos: /:slug/status/:plate/:trackingHash
+            // Strip BASE_PATH prefix from pathname before parsing
+            const baseParts = BASE_PATH.split('/').filter(Boolean);
+            let parts = window.location.pathname.split('/').filter(Boolean);
+
+            // Remove base path segments if present at the start
+            if (baseParts.length > 0) {
+                let match = true;
+                for (let i = 0; i < baseParts.length; i++) {
+                    if (parts[i] !== baseParts[i]) { match = false; break; }
+                }
+                if (match) parts = parts.slice(baseParts.length);
+            }
+
+            // Formato clásico: /:slug/status/:plate/:trackingHash
             if (parts.length >= 4 && parts[1] === 'status') {
                 return { slug: parts[0], plate: parts[2], trackingHash: parts[3] };
             }
+
+            // Formato subdominio: /status/:plate/:trackingHash
+            if (parts.length >= 3 && parts[0] === 'status') {
+                if (_resolvedSubdomainSlug) {
+                    return { slug: _resolvedSubdomainSlug, plate: parts[1], trackingHash: parts[2] };
+                }
+                // Sin slug resuelto aún → se resuelve en loadTracking
+                return { slug: null, plate: parts[1], trackingHash: parts[2], needsSubdomainResolve: true };
+            }
+
             return null;
         }
 
@@ -512,15 +541,38 @@
         }
 
         async function loadTracking() {
-            const params = parseUrl();
+            let params = parseUrl();
 
             if (!params) {
                 showNotFound('URL inválida', 'La dirección no tiene el formato correcto.');
                 return;
             }
 
+            // Si necesita resolver subdominio → obtener slug del servidor
+            if (params.needsSubdomainResolve) {
+                try {
+                    const infoRes = await fetch(BASE_PATH + '/api/public/subdomain-info');
+                    const infoData = await infoRes.json();
+                    if (infoRes.ok && infoData.workshop && infoData.workshop.slug) {
+                        _resolvedSubdomainSlug = infoData.workshop.slug;
+                        params.slug = _resolvedSubdomainSlug;
+                    } else {
+                        showNotFound('Taller no encontrado', 'No se encontró un taller para este subdominio.');
+                        return;
+                    }
+                } catch (e) {
+                    showNotFound('Error de conexión', 'No se pudo resolver el taller. Intenta más tarde.');
+                    return;
+                }
+            }
+
+            if (!params.slug) {
+                showNotFound('URL inválida', 'No se pudo identificar el taller.');
+                return;
+            }
+
             try {
-                const response = await fetch(`/api/public/${encodeURIComponent(params.slug)}/status/${encodeURIComponent(params.plate)}/${encodeURIComponent(params.trackingHash)}`);
+                const response = await fetch(`${BASE_PATH}/api/public/${encodeURIComponent(params.slug)}/status/${encodeURIComponent(params.plate)}/${encodeURIComponent(params.trackingHash)}`);
                 const result = await response.json();
 
                 if (!response.ok) {

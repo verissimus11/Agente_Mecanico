@@ -56,9 +56,11 @@ const initializeDatabase = async () => {
       )
     `);
     await pool.query('ALTER TABLE workshops ADD COLUMN IF NOT EXISTS enabled BOOLEAN DEFAULT TRUE');
+    await pool.query('ALTER TABLE workshops ADD COLUMN IF NOT EXISTS subdomain TEXT');
     await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_workshops_slug ON workshops(slug)');
     await pool.query('CREATE INDEX IF NOT EXISTS idx_workshops_active ON workshops(active)');
     await pool.query('CREATE INDEX IF NOT EXISTS idx_workshops_enabled ON workshops(enabled)');
+    await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_workshops_subdomain ON workshops(subdomain) WHERE subdomain IS NOT NULL');
 
     // 2. Crear tabla vehicles
     await pool.query(`
