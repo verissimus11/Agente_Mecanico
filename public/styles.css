@@ -208,6 +208,15 @@ body {
     flex-wrap: wrap;
 }
 
+.action-buttons {
+    margin-top: 0.7rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
 .workshop-switch label {
     font-size: 0.9rem;
     font-weight: 600;
