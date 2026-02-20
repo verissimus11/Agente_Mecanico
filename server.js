@@ -65,8 +65,14 @@ app.get(`${BASE_PATH}/config.js`, (req, res) => {
   res.send(`window.__BASE_PATH=${JSON.stringify(BASE_PATH)};window.__SUBDOMAIN=${JSON.stringify(req.workshopSubdomain || null)};`);
 });
 
+// ====== Health check (fuera del router, accesible en /healthz) ======
+app.get('/healthz', (req, res) => res.status(200).json({ status: 'ok' }));
+
 // ====== Router principal montado en BASE_PATH ======
 const tfRouter = express.Router();
+
+// Health check dentro del router también
+tfRouter.get('/health', (req, res) => res.status(200).json({ status: 'ok' }));
 
 // Archivos estáticos del frontend
 tfRouter.use(express.static(path.join(__dirname, 'public')));
