@@ -114,9 +114,9 @@ tfRouter.get('/:slug/status/:plate/:trackingHash', trackingRateLimiter, (req, re
 // Montar toda la app bajo BASE_PATH
 app.use(BASE_PATH, tfRouter);
 
-// Redirigir raíz al panel
+// Página principal de Lance Systems en la raíz
 app.get('/', (req, res) => {
-  res.redirect(302, BASE_PATH);
+  res.sendFile(path.join(__dirname, 'public', 'landing.html'));
 });
 
 // ====== Manejo de errores ======
