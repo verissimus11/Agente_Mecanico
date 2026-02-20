@@ -26,6 +26,12 @@ function getConfiguredUsers() {
       workshopSlug: process.env.OWNER_WORKSHOP_SLUG || null
     },
     {
+      username: process.env.DUENO_USERNAME || 'dueno',
+      password: process.env.DUENO_PASSWORD || 'dueno12345',
+      role: 'dueño',
+      workshopSlug: process.env.DUENO_WORKSHOP_SLUG || 'alua-odon-motor'
+    },
+    {
       username: process.env.MECHANIC_USERNAME || 'mecanico',
       password: process.env.MECHANIC_PASSWORD || 'mecanico12345',
       role: 'mechanic',

@@ -7,7 +7,7 @@ const router = express.Router();
 router.use(authenticate);
 
 // GET /workshops - Listar talleres activos
-router.get('/', requireRole(['owner', 'mechanic']), async (req, res) => {
+router.get('/', requireRole(['owner', 'dueño', 'mechanic']), async (req, res) => {
   try {
     const workshops = await Workshop.listActive();
     res.json({
@@ -87,6 +87,36 @@ router.get('/:slug', requireRole(['owner', 'mechanic']), async (req, res) => {
 
   } catch (error) {
     console.error('Error buscando taller:', error);
+    res.status(500).json({
+      error: 'INTERNAL_ERROR',
+      message: 'Error interno del servidor'
+    });
+  }
+});
+
+// PATCH /workshops/:slug/toggle-enabled - Habilitar/Deshabilitar taller (suscripción)
+router.patch('/:slug/toggle-enabled', requireRole(['owner']), async (req, res) => {
+  try {
+    const workshop = await Workshop.findBySlug(req.params.slug);
+    if (!workshop) {
+      return res.status(404).json({
+        error: 'WORKSHOP_NOT_FOUND',
+        message: 'Taller no encontrado'
+      });
+    }
+
+    const newEnabled = workshop.enabled === false ? true : false;
+    const updated = await Workshop.setEnabled(workshop.id, newEnabled);
+    const label = newEnabled ? 'habilitado' : 'deshabilitado';
+    console.log(`🏭 Taller ${label}: ${workshop.name} (${workshop.slug})`);
+
+    res.json({
+      success: true,
+      data: updated,
+      message: `Taller "${workshop.name}" ${label} correctamente`
+    });
+  } catch (error) {
+    console.error('Error toggling workshop enabled:', error);
     res.status(500).json({
       error: 'INTERNAL_ERROR',
       message: 'Error interno del servidor'

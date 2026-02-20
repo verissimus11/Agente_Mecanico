@@ -1,7 +1,17 @@
 const { runQuery, getQuery, allQuery } = require('../db/pg-connection');
 const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 
 class Vehicle {
+  static generateTrackingHash(vehicleId, status) {
+    const secret = process.env.TRACKING_HASH_SECRET || process.env.JWT_SECRET || 'lance-workshop-tracking-secret';
+    const entropy = crypto.randomBytes(16).toString('hex');
+    return crypto
+      .createHmac('sha256', secret)
+      .update(`${vehicleId}|${status}|${Date.now()}|${entropy}`)
+      .digest('hex');
+  }
+
   // Estados permitidos
   static STATUSES = {
     ESPERANDO_REVISION: 'ESPERANDO_REVISION',
@@ -47,6 +57,7 @@ class Vehicle {
     const normalizedPlate = plate.trim().toUpperCase().replace(/\s+/g, '');
     const actorUsername = actor?.username || null;
     const actorName = actor?.name || actor?.username || null;
+    const trackingHash = this.generateTrackingHash(id, this.STATUSES.ESPERANDO_REVISION);
     
     const query = `
       INSERT INTO vehicles (
@@ -59,9 +70,10 @@ class Vehicle {
         created_by_name,
         last_status_by_username,
         last_status_by_name,
+        tracking_hash,
         active
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, TRUE)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, TRUE)
     `;
     
     const values = [
@@ -73,7 +85,8 @@ class Vehicle {
       actorUsername,
       actorName,
       actorUsername,
-      actorName
+      actorName,
+      trackingHash
     ];
     await runQuery(query, values);
     
@@ -95,6 +108,7 @@ class Vehicle {
   static async updateStatus(id, workshopId, status, lastEvent = null, actor = null) {
     const actorUsername = actor?.username || null;
     const actorName = actor?.name || actor?.username || null;
+    const trackingHash = this.generateTrackingHash(id, status);
     const query = `
       UPDATE vehicles 
       SET
@@ -102,15 +116,31 @@ class Vehicle {
         last_event = $2,
         last_status_by_username = $3,
         last_status_by_name = $4,
+        tracking_hash = $5,
         updated_at = NOW()
-      WHERE id = $5 AND workshop_id = $6 AND active = TRUE
+      WHERE id = $6 AND workshop_id = $7 AND active = TRUE
     `;
     
-    const values = [status, lastEvent, actorUsername, actorName, id, workshopId];
+    const values = [status, lastEvent, actorUsername, actorName, trackingHash, id, workshopId];
     await runQuery(query, values);
     
     const updated = await getQuery('SELECT * FROM vehicles WHERE id = $1 AND workshop_id = $2', [id, workshopId]);
     return updated;
+  }
+
+  // Registrar PDF de presupuesto por vehículo
+  static async updateQuotePdf(id, workshopId, quotePdfPath) {
+    const query = `
+      UPDATE vehicles
+      SET
+        quote_pdf_path = $1,
+        quote_pdf_uploaded_at = NOW(),
+        updated_at = NOW()
+      WHERE id = $2 AND workshop_id = $3 AND active = TRUE
+    `;
+
+    await runQuery(query, [quotePdfPath, id, workshopId]);
+    return await getQuery('SELECT * FROM vehicles WHERE id = $1 AND workshop_id = $2', [id, workshopId]);
   }
 
   // Buscar por teléfono (filtrado por workshop_id)
@@ -178,13 +208,59 @@ class Vehicle {
   static async findActiveByPlateAndWorkshop(workshopId, plate) {
     const normalizedPlate = plate.trim().toUpperCase().replace(/\s+/g, '');
     const query = `
-      SELECT id, plate, status, updated_at
+      SELECT id, plate, status, updated_at, tracking_hash
       FROM vehicles 
       WHERE workshop_id = $1 AND plate = $2 AND active = TRUE
       ORDER BY updated_at DESC
       LIMIT 1
     `;
     return await getQuery(query, [workshopId, normalizedPlate]);
+  }
+
+  static async findActiveByPlateWorkshopAndHash(workshopId, plate, trackingHash) {
+    const normalizedPlate = plate.trim().toUpperCase().replace(/\s+/g, '');
+    const query = `
+      SELECT id, plate, status, updated_at, tracking_hash
+      FROM vehicles
+      WHERE workshop_id = $1 AND plate = $2 AND tracking_hash = $3 AND active = TRUE
+      LIMIT 1
+    `;
+    return await getQuery(query, [workshopId, normalizedPlate, trackingHash]);
+  }
+
+  // Estadísticas de rendimiento por mecánico
+  static async getMechanicPerformance(workshopId) {
+    const query = `
+      SELECT
+        v.last_status_by_username AS mechanic_username,
+        v.last_status_by_name AS mechanic_name,
+        v.status,
+        COUNT(*)::int AS count
+      FROM vehicles v
+      WHERE v.workshop_id = $1 AND v.active = TRUE
+        AND v.last_status_by_username IS NOT NULL
+      GROUP BY v.last_status_by_username, v.last_status_by_name, v.status
+      ORDER BY v.last_status_by_name ASC, v.status ASC
+    `;
+    return await allQuery(query, [workshopId]);
+  }
+
+  // Total de coches finalizados por mecánico (histórico)
+  static async getMechanicFinalized(workshopId) {
+    const query = `
+      SELECT
+        vl.actor_username AS mechanic_username,
+        vl.actor_name AS mechanic_name,
+        COUNT(DISTINCT vl.vehicle_id)::int AS finalized
+      FROM vehicle_logs vl
+      JOIN vehicles v ON v.id = vl.vehicle_id
+      WHERE v.workshop_id = $1
+        AND vl.status = 'LISTO'
+        AND vl.actor_username IS NOT NULL
+      GROUP BY vl.actor_username, vl.actor_name
+      ORDER BY finalized DESC
+    `;
+    return await allQuery(query, [workshopId]);
   }
 }
 

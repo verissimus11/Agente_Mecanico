@@ -28,8 +28,22 @@ const repairSystemButtons = document.getElementById('repairSystemButtons');
 const repairPartButtons = document.getElementById('repairPartButtons');
 const repairNoteInput = document.getElementById('repairNoteInput');
 const applyEsperandoPiezaBtn = document.getElementById('applyEsperandoPiezaBtn');
+const addExtraRepairBtn = document.getElementById('addExtraRepairBtn');
+const extraRepairList = document.getElementById('extraRepairList');
+const toggleWaitingPieceDetailsBtn = document.getElementById('toggleWaitingPieceDetailsBtn');
+const waitingPieceDetails = document.getElementById('waitingPieceDetails');
+const budgetPdfFileInput = document.getElementById('budgetPdfFile');
+const uploadBudgetPdfBtn = document.getElementById('uploadBudgetPdfBtn');
+const viewBudgetPdfBtn = document.getElementById('viewBudgetPdfBtn');
+const budgetPdfInfo = document.getElementById('budgetPdfInfo');
+const statusFilter = document.getElementById('statusFilter');
+const mechanicFilter = document.getElementById('mechanicFilter');
+const performanceBtn = document.getElementById('performanceBtn');
+const roleSelectGroup = document.getElementById('roleSelectGroup');
+const newUserRoleSelect = document.getElementById('newUserRole');
 let selectedRepairSystem = '';
 let selectedRepairPart = '';
+let extraRepairItems = [];
 
 const statusButtons = {
     esperandoRevision: document.getElementById('statusEsperandoRevision'),
@@ -110,22 +124,37 @@ function showPanel() {
         panelInitialized = true;
     }
 
-    const isOwner = currentUser?.role === 'owner';
+    const role = currentUser?.role || '';
+    const isOwner = role === 'owner';
+    const isDueno = role === 'dueño';
+    const isMechanic = role === 'mechanic';
     const manageWorkshopsBtn = document.getElementById('manageWorkshopsBtn');
     const manageUsersBtn = document.getElementById('manageUsersBtn');
+
+    // Workshop management: solo owner
     if (manageWorkshopsBtn) {
         manageWorkshopsBtn.style.display = isOwner ? 'inline-flex' : 'none';
     }
+    // User management: owner y dueño
     if (manageUsersBtn) {
-        manageUsersBtn.style.display = isOwner ? 'inline-flex' : 'none';
+        manageUsersBtn.style.display = (isOwner || isDueno) ? 'inline-flex' : 'none';
+    }
+    // Performance: owner y dueño
+    if (performanceBtn) {
+        performanceBtn.style.display = (isOwner || isDueno) ? 'inline-flex' : 'none';
+    }
+    // Role selector: solo owner puede crear dueños
+    if (roleSelectGroup) {
+        roleSelectGroup.style.display = isOwner ? 'block' : 'none';
     }
 
     loadWorkshopInfo().then(async () => {
         await loadVehicles();
-        if (isOwner) {
+        if (isOwner || isDueno) {
             await loadWorkshopUsers();
         }
         initializeRepairSelectors();
+        populateMechanicFilter();
     });
 }
 
@@ -178,7 +207,7 @@ function setupLoginForm() {
                 return;
             }
 
-            if (currentUser && currentUser.workshopSlug && currentUser.role === 'mechanic') {
+            if (currentUser && currentUser.workshopSlug && (currentUser.role === 'mechanic' || currentUser.role === 'dueño')) {
                 selectedWorkshopSlug = currentUser.workshopSlug;
                 localStorage.setItem('selectedWorkshopSlug', selectedWorkshopSlug);
             }
@@ -219,7 +248,7 @@ async function validateToken(token) {
         if (!response.ok) return false;
         const result = await response.json();
         currentUser = result.user || null;
-        if (currentUser && currentUser.workshopSlug && currentUser.role === 'mechanic') {
+        if (currentUser && currentUser.workshopSlug && (currentUser.role === 'mechanic' || currentUser.role === 'dueño')) {
             selectedWorkshopSlug = currentUser.workshopSlug;
             localStorage.setItem('selectedWorkshopSlug', selectedWorkshopSlug);
         }
@@ -262,7 +291,7 @@ async function loadWorkshopInfo() {
             const workshops = result.data;
             availableWorkshops = workshops;
 
-            if (currentUser && currentUser.role === 'mechanic') {
+            if (currentUser && (currentUser.role === 'mechanic' || currentUser.role === 'dueño')) {
                 if (!selectedWorkshopSlug) {
                     selectedWorkshopSlug = currentUser.workshopSlug || workshops[0].slug;
                 }
@@ -319,6 +348,13 @@ function setupEventListeners() {
         renderVehiclesTable();
     });
 
+    if (statusFilter) {
+        statusFilter.addEventListener('change', () => renderVehiclesTable());
+    }
+    if (mechanicFilter) {
+        mechanicFilter.addEventListener('change', () => renderVehiclesTable());
+    }
+
     statusButtons.esperandoRevision.addEventListener('click', () => updateVehicleStatus('ESPERANDO_REVISION'));
     statusButtons.enRevision.addEventListener('click', () => updateVehicleStatus('EN_REVISION'));
     statusButtons.montandoPieza.addEventListener('click', () => updateVehicleStatus('MONTANDO_PIEZA'));
@@ -329,6 +365,18 @@ function setupEventListeners() {
     if (applyEsperandoPiezaBtn) {
         applyEsperandoPiezaBtn.addEventListener('click', applyEsperandoPiezaWithCatalog);
     }
+    if (addExtraRepairBtn) {
+        addExtraRepairBtn.addEventListener('click', addCurrentSelectionAsExtraRepair);
+    }
+    if (toggleWaitingPieceDetailsBtn) {
+        toggleWaitingPieceDetailsBtn.addEventListener('click', toggleWaitingPieceDetails);
+    }
+    if (uploadBudgetPdfBtn) {
+        uploadBudgetPdfBtn.addEventListener('click', uploadBudgetPdfForSelectedVehicle);
+    }
+    if (viewBudgetPdfBtn) {
+        viewBudgetPdfBtn.addEventListener('click', openBudgetPdfForSelectedVehicle);
+    }
 
     if (workshopSelect) {
         workshopSelect.addEventListener('change', async () => {
@@ -337,10 +385,11 @@ function setupEventListeners() {
             selectedVehicleId = null;
             await loadWorkshopInfo();
             await loadVehicles();
-            if (currentUser?.role === 'owner') {
+            if (currentUser?.role === 'owner' || currentUser?.role === 'dueño') {
                 await loadWorkshopUsers();
                 renderUsersList();
             }
+            populateMechanicFilter();
         });
     }
 
@@ -438,8 +487,73 @@ function openEsperandoPiezaPanel() {
         return;
     }
     initializeRepairSelectors();
+    extraRepairItems = [];
+    renderExtraRepairList();
     if (repairNoteInput) repairNoteInput.value = '';
     waitingPiecePanel.style.display = 'block';
+    // Mostrar detalles colapsados por defecto
+    if (waitingPieceDetails) waitingPieceDetails.style.display = 'none';
+    if (toggleWaitingPieceDetailsBtn) toggleWaitingPieceDetailsBtn.textContent = 'Detalles';
+}
+
+function toggleWaitingPieceDetails() {
+    if (!waitingPieceDetails) return;
+    const isHidden = waitingPieceDetails.style.display === 'none';
+    waitingPieceDetails.style.display = isHidden ? 'block' : 'none';
+    if (toggleWaitingPieceDetailsBtn) {
+        toggleWaitingPieceDetailsBtn.textContent = isHidden ? 'Ocultar' : 'Detalles';
+    }
+}
+
+function addCurrentSelectionAsExtraRepair() {
+    const systemName = selectedRepairSystem || '';
+    const partName = selectedRepairPart || '';
+
+    if (!systemName || !partName) {
+        showMessage('Selecciona sistema y pieza antes de añadir pieza.', 'error');
+        return;
+    }
+
+    const duplicate = extraRepairItems.some((item) => item.system === systemName && item.part === partName);
+    if (duplicate) {
+        showMessage('Esa pieza ya está añadida.', 'error');
+        return;
+    }
+
+    extraRepairItems.push({ system: systemName, part: partName });
+    renderExtraRepairList();
+    showMessage('Pieza extra añadida.', 'success', 1800);
+}
+
+function removeExtraRepair(index) {
+    if (index < 0 || index >= extraRepairItems.length) return;
+    extraRepairItems.splice(index, 1);
+    renderExtraRepairList();
+}
+
+function renderExtraRepairList() {
+    if (!extraRepairList) return;
+
+    if (!extraRepairItems.length) {
+        extraRepairList.style.display = 'none';
+        extraRepairList.innerHTML = '';
+        return;
+    }
+
+    extraRepairList.style.display = 'flex';
+    extraRepairList.innerHTML = extraRepairItems.map((item, index) => `
+        <div class="extra-repair-item">
+            <span class="extra-repair-text">${item.system} · ${item.part}</span>
+            <button type="button" class="btn-remove-x" data-extra-remove="${index}" title="Eliminar pieza">✕</button>
+        </div>
+    `).join('');
+
+    extraRepairList.querySelectorAll('[data-extra-remove]').forEach((button) => {
+        button.addEventListener('click', () => {
+            const index = Number(button.getAttribute('data-extra-remove'));
+            removeExtraRepair(index);
+        });
+    });
 }
 
 async function applyEsperandoPiezaWithCatalog() {
@@ -452,11 +566,29 @@ async function applyEsperandoPiezaWithCatalog() {
         return;
     }
 
+    const allRepairs = [{ system: systemName, part: partName }, ...extraRepairItems];
+    const uniqueRepairs = [];
+    const seen = new Set();
+
+    allRepairs.forEach((item) => {
+        const key = `${item.system}::${item.part}`;
+        if (!seen.has(key)) {
+            seen.add(key);
+            uniqueRepairs.push(item);
+        }
+    });
+
+    const repairsText = uniqueRepairs
+        .map((item, index) => `Pieza ${index + 1}: ${item.system} - ${item.part}`)
+        .join(' · ');
+
     const catalogNote = note
-        ? `Esperando pieza · Sistema: ${systemName} · Pieza: ${partName} · Nota: ${note}`
-        : `Esperando pieza · Sistema: ${systemName} · Pieza: ${partName}`;
+        ? `Esperando pieza · ${repairsText} · Nota: ${note}`
+        : `Esperando pieza · ${repairsText}`;
 
     await updateVehicleStatus('ESPERANDO_PIEZA', catalogNote);
+    extraRepairItems = [];
+    renderExtraRepairList();
     waitingPiecePanel.style.display = 'none';
 }
 
@@ -559,8 +691,9 @@ async function handleVehicleSubmit(event) {
 
         if (response.ok) {
             let msg = result.message;
-            if (currentWorkshop && currentWorkshop.slug) {
-                const trackUrl = `${window.location.origin}/${currentWorkshop.slug}/status/${plate}`;
+            const createdVehicle = result.data || null;
+            if (currentWorkshop && currentWorkshop.slug && createdVehicle?.tracking_hash) {
+                const trackUrl = `${window.location.origin}/${currentWorkshop.slug}/status/${plate}/${createdVehicle.tracking_hash}`;
                 msg += `\n\n🔗 URL de seguimiento: ${trackUrl}`;
             }
             showMessage(msg, 'success', 6000);
@@ -610,6 +743,7 @@ async function loadVehicles() {
         }
 
         renderVehiclesTable();
+        populateMechanicFilter();
         updateSelectionState();
     } catch (error) {
         handleApiError(error, 'Error de conexión al cargar vehículos.');
@@ -618,11 +752,24 @@ async function loadVehicles() {
 
 function getFilteredVehicles() {
     const query = normalizePlate(plateSearchInput.value || '');
-    if (!query) {
-        return vehicles;
+    const statusVal = statusFilter ? statusFilter.value : '';
+    const mechanicVal = mechanicFilter ? mechanicFilter.value : '';
+
+    let filtered = vehicles;
+
+    if (query) {
+        filtered = filtered.filter((vehicle) => normalizePlate(vehicle.plate).includes(query));
+    }
+    if (statusVal) {
+        filtered = filtered.filter((vehicle) => vehicle.status === statusVal);
+    }
+    if (mechanicVal) {
+        filtered = filtered.filter((vehicle) =>
+            (vehicle.last_status_by_username || '') === mechanicVal
+        );
     }
 
-    return vehicles.filter((vehicle) => normalizePlate(vehicle.plate).includes(query));
+    return filtered;
 }
 
 function renderVehiclesTable() {
@@ -639,8 +786,8 @@ function renderVehiclesTable() {
     }
 
     vehiclesTableBody.innerHTML = filtered.map((vehicle) => {
-        const trackUrl = currentWorkshop && currentWorkshop.slug
-            ? `${window.location.origin}/${currentWorkshop.slug}/status/${vehicle.plate}`
+        const trackUrl = currentWorkshop && currentWorkshop.slug && vehicle.tracking_hash
+            ? `${window.location.origin}/${currentWorkshop.slug}/status/${vehicle.plate}/${vehicle.tracking_hash}`
             : '';
         const createdBy = vehicle.created_by_name || vehicle.created_by_username || '—';
         const lastStatusBy = vehicle.last_status_by_name || vehicle.last_status_by_username || '—';
@@ -680,12 +827,122 @@ function updateSelectionState() {
         selectedPlate.textContent = selectedVehicle.plate;
         statusSectionInstruction.textContent = `Vehículo seleccionado: ${selectedVehicle.plate}`;
         setStatusButtonsEnabled(true);
+        renderBudgetPdfInfo(selectedVehicle);
         return;
     }
 
     selectedPlate.textContent = 'Ninguno';
     statusSectionInstruction.textContent = 'Selecciona un vehículo para cambiar el estado.';
     setStatusButtonsEnabled(false);
+    renderBudgetPdfInfo(null);
+}
+
+function renderBudgetPdfInfo(vehicle) {
+    if (!budgetPdfInfo || !uploadBudgetPdfBtn || !viewBudgetPdfBtn) return;
+
+    if (!vehicle) {
+        uploadBudgetPdfBtn.disabled = true;
+        viewBudgetPdfBtn.disabled = true;
+        budgetPdfInfo.textContent = 'Selecciona un vehículo para gestionar presupuesto.';
+        return;
+    }
+
+    uploadBudgetPdfBtn.disabled = false;
+    viewBudgetPdfBtn.disabled = !vehicle.quote_pdf_path;
+
+    if (vehicle.quote_pdf_uploaded_at) {
+        budgetPdfInfo.textContent = `PDF cargado: ${formatDate(vehicle.quote_pdf_uploaded_at)}`;
+    } else {
+        budgetPdfInfo.textContent = 'Aún no hay PDF de presupuesto cargado para este vehículo.';
+    }
+}
+
+async function uploadBudgetPdfForSelectedVehicle() {
+    if (!selectedVehicleId) {
+        showMessage('Selecciona un vehículo antes de subir el presupuesto.', 'error');
+        return;
+    }
+
+    const selectedVehicle = vehicles.find((vehicle) => vehicle.id === selectedVehicleId);
+    if (!selectedVehicle) {
+        showMessage('Vehículo seleccionado no válido.', 'error');
+        return;
+    }
+
+    const file = budgetPdfFileInput?.files?.[0];
+    if (!file) {
+        showMessage('Selecciona un PDF antes de subir.', 'error');
+        return;
+    }
+
+    if (file.type !== 'application/pdf') {
+        showMessage('Solo se permiten archivos PDF.', 'error');
+        return;
+    }
+
+    if (selectedVehicle.status !== 'PRESUPUESTO_PENDIENTE') {
+        showMessage('El vehículo debe estar en Presupuesto pendiente para subir el PDF.', 'error');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('quote_pdf', file);
+
+    uploadBudgetPdfBtn.disabled = true;
+    const originalLabel = uploadBudgetPdfBtn.textContent;
+    uploadBudgetPdfBtn.textContent = 'Subiendo...';
+
+    try {
+        const response = await apiFetch(`/vehicles/${selectedVehicleId}/quote-pdf`, {
+            method: 'POST',
+            body: formData
+        });
+
+        const result = await response.json();
+        if (!response.ok) {
+            showMessage(result.message || 'No se pudo subir el PDF.', 'error');
+            return;
+        }
+
+        if (budgetPdfFileInput) {
+            budgetPdfFileInput.value = '';
+        }
+
+        showMessage('Presupuesto PDF subido correctamente.', 'success', 3000);
+        await loadVehicles();
+        updateSelectionState();
+    } catch (error) {
+        handleApiError(error, 'Error subiendo el PDF de presupuesto.');
+    } finally {
+        uploadBudgetPdfBtn.disabled = false;
+        uploadBudgetPdfBtn.textContent = originalLabel;
+    }
+}
+
+async function openBudgetPdfForSelectedVehicle() {
+    if (!selectedVehicleId) {
+        showMessage('Selecciona un vehículo primero.', 'error');
+        return;
+    }
+
+    try {
+        const response = await apiFetch(`/vehicles/${selectedVehicleId}/quote-pdf`, {
+            method: 'GET'
+        });
+
+        if (!response.ok) {
+            const result = await response.json();
+            showMessage(result.message || 'No se pudo abrir el PDF.', 'error');
+            return;
+        }
+
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        window.open(blobUrl, '_blank');
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+    } catch (error) {
+        handleApiError(error, 'Error abriendo el PDF de presupuesto.');
+    }
 }
 
 function setStatusButtonsEnabled(enabled) {
@@ -899,15 +1156,23 @@ function renderWorkshopList() {
         return;
     }
 
-    container.innerHTML = availableWorkshops.map((ws) => `
-        <div class="workshop-item">
+    container.innerHTML = availableWorkshops.map((ws) => {
+        const enabled = ws.enabled !== false;
+        const statusBadge = enabled
+            ? '<span class="workshop-status-badge enabled">Activo</span>'
+            : '<span class="workshop-status-badge disabled">Deshabilitado</span>';
+        return `
+        <div class="workshop-item${enabled ? '' : ' workshop-disabled'}">
             <div class="workshop-item-info">
-                <span class="workshop-item-name">${ws.name}</span>
+                <span class="workshop-item-name">${ws.name} ${statusBadge}</span>
                 <span class="workshop-item-slug">${ws.slug}</span>
             </div>
-            <button class="btn-delete-workshop" data-delete-slug="${ws.slug}" data-delete-name="${ws.name}">🗑 Eliminar</button>
-        </div>
-    `).join('');
+            <div class="workshop-item-actions">
+                <button class="btn-toggle-enabled" data-toggle-slug="${ws.slug}" data-toggle-name="${ws.name}">${enabled ? '⏸ Deshabilitar' : '▶ Habilitar'}</button>
+                <button class="btn-delete-workshop" data-delete-slug="${ws.slug}" data-delete-name="${ws.name}">🗑 Eliminar</button>
+            </div>
+        </div>`;
+    }).join('');
 }
 
 function slugify(text) {
@@ -989,7 +1254,8 @@ async function deleteWorkshop(slug, name) {
 }
 
 async function loadWorkshopUsers() {
-    if (currentUser?.role !== 'owner') {
+    const role = currentUser?.role || '';
+    if (role !== 'owner' && role !== 'dueño') {
         workshopUsers = [];
         return;
     }
@@ -1004,7 +1270,8 @@ async function loadWorkshopUsers() {
 }
 
 function openUsersModal() {
-    if (currentUser?.role !== 'owner') return;
+    const role = currentUser?.role || '';
+    if (role !== 'owner' && role !== 'dueño') return;
     document.getElementById('usersModal').style.display = 'flex';
     renderUsersList();
 }
@@ -1020,29 +1287,44 @@ function renderUsersList() {
     const container = document.getElementById('usersListManage');
     if (!container) return;
 
+    const callerRole = currentUser?.role || '';
+    const canDelete = callerRole === 'owner' || callerRole === 'dueño';
+
     if (!workshopUsers.length) {
-        container.innerHTML = '<p style="color: var(--gray-500); text-align: center;">No hay usuarios mecánicos en este taller.</p>';
+        container.innerHTML = '<p style="color: var(--gray-500); text-align: center;">No hay usuarios en este taller.</p>';
         return;
     }
 
-    container.innerHTML = workshopUsers.map((user) => `
+    const roleLabels = { 'mechanic': 'Mecánico', 'dueño': 'Dueño' };
+
+    container.innerHTML = workshopUsers.map((user) => {
+        const roleLabel = roleLabels[user.role] || user.role;
+        const canDeleteThis = canDelete && !(callerRole === 'dueño' && user.role !== 'mechanic');
+        const deleteBtn = canDeleteThis
+            ? `<button class="btn-delete-workshop" data-delete-user-id="${user.id}" data-delete-user-name="${user.name}">🗑 Quitar</button>`
+            : '';
+        return `
         <div class="workshop-item">
             <div class="workshop-item-info">
                 <span class="workshop-item-name">${user.name}</span>
                 <span class="workshop-item-slug">@${user.username}</span>
             </div>
-            <span class="user-role-chip">${user.role === 'mechanic' ? 'Mecánico' : user.role}</span>
-        </div>
-    `).join('');
+            <div class="user-actions-row">
+                <span class="user-role-chip">${roleLabel}</span>
+                ${deleteBtn}
+            </div>
+        </div>`;
+    }).join('');
 }
 
 async function addMechanicUser() {
     const name = (document.getElementById('newMechanicName').value || '').trim();
     const username = (document.getElementById('newMechanicUsername').value || '').trim().toLowerCase();
     const password = document.getElementById('newMechanicPassword').value || '';
+    const role = (newUserRoleSelect && currentUser?.role === 'owner') ? newUserRoleSelect.value : 'mechanic';
 
     if (!name || !username || !password) {
-        showMessage('Completa nombre, usuario y contraseña del mecánico.', 'error');
+        showMessage('Completa nombre, usuario y contraseña.', 'error');
         return;
     }
 
@@ -1050,24 +1332,25 @@ async function addMechanicUser() {
         const response = await apiFetch('/users', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, username, password })
+            body: JSON.stringify({ name, username, password, role })
         });
 
         const result = await response.json();
 
         if (!response.ok) {
-            showMessage(result.message || 'No se pudo crear el usuario mecánico.', 'error');
+            showMessage(result.message || 'No se pudo crear el usuario.', 'error');
             return;
         }
 
-        showMessage('Usuario mecánico creado correctamente.', 'success', 2500);
+        showMessage(result.message || 'Usuario creado correctamente.', 'success', 2500);
         document.getElementById('newMechanicName').value = '';
         document.getElementById('newMechanicUsername').value = '';
         document.getElementById('newMechanicPassword').value = '';
+        if (newUserRoleSelect) newUserRoleSelect.value = 'mechanic';
         await loadWorkshopUsers();
         renderUsersList();
     } catch (error) {
-        showMessage('Error de conexión creando usuario mecánico.', 'error');
+        showMessage('Error de conexión creando usuario.', 'error');
     }
 }
 
@@ -1077,8 +1360,12 @@ document.getElementById('manageUsersBtn').addEventListener('click', async () => 
     await loadWorkshopUsers();
     openUsersModal();
 });
+if (performanceBtn) {
+    performanceBtn.addEventListener('click', openPerformanceModal);
+}
 document.getElementById('closeWorkshopModalBtn').addEventListener('click', closeWorkshopModal);
 document.getElementById('closeUsersModalBtn').addEventListener('click', closeUsersModal);
+document.getElementById('closePerformanceModalBtn')?.addEventListener('click', closePerformanceModal);
 document.getElementById('addWorkshopBtn').addEventListener('click', addWorkshop);
 document.getElementById('addMechanicBtn').addEventListener('click', addMechanicUser);
 
@@ -1086,11 +1373,13 @@ document.getElementById('addMechanicBtn').addEventListener('click', addMechanicU
 document.addEventListener('click', (e) => {
     if (e.target.id === 'workshopModal') closeWorkshopModal();
     if (e.target.id === 'usersModal') closeUsersModal();
+    if (e.target.id === 'performanceModal') closePerformanceModal();
 });
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
         closeWorkshopModal();
         closeUsersModal();
+        closePerformanceModal();
     }
 });
 
@@ -1102,13 +1391,146 @@ document.getElementById('newWorkshopName').addEventListener('keydown', (e) => {
     }
 });
 
-// Event delegation para botón eliminar taller
+// Event delegation para botón eliminar/habilitar taller
 document.getElementById('workshopListManage').addEventListener('click', (e) => {
     const deleteBtn = e.target.closest('[data-delete-slug]');
     if (deleteBtn) {
         deleteWorkshop(deleteBtn.dataset.deleteSlug, deleteBtn.dataset.deleteName);
+        return;
+    }
+    const toggleBtn = e.target.closest('[data-toggle-slug]');
+    if (toggleBtn) {
+        toggleWorkshopEnabled(toggleBtn.dataset.toggleSlug, toggleBtn.dataset.toggleName);
     }
 });
+
+// Event delegation para eliminar usuario
+document.getElementById('usersListManage').addEventListener('click', (e) => {
+    const deleteBtn = e.target.closest('[data-delete-user-id]');
+    if (deleteBtn) {
+        deleteUser(deleteBtn.dataset.deleteUserId, deleteBtn.dataset.deleteUserName);
+    }
+});
+
+// ====== FUNCIONES NUEVAS ======
+
+function populateMechanicFilter() {
+    if (!mechanicFilter) return;
+    const mechanics = new Map();
+    vehicles.forEach((v) => {
+        if (v.last_status_by_username) {
+            mechanics.set(v.last_status_by_username, v.last_status_by_name || v.last_status_by_username);
+        }
+    });
+    const currentVal = mechanicFilter.value;
+    mechanicFilter.innerHTML = '<option value="">Todos</option>' +
+        Array.from(mechanics.entries()).map(([username, name]) =>
+            `<option value="${username}">${name}</option>`
+        ).join('');
+    mechanicFilter.value = currentVal;
+}
+
+async function toggleWorkshopEnabled(slug, name) {
+    try {
+        const response = await apiFetch(`/workshops/${encodeURIComponent(slug)}/toggle-enabled`, {
+            method: 'PATCH'
+        });
+        const result = await response.json();
+        if (response.ok) {
+            showMessage(result.message, 'success', 3000);
+            await loadWorkshopInfo();
+            renderWorkshopList();
+        } else {
+            showMessage(result.message || 'Error al cambiar estado del taller.', 'error');
+        }
+    } catch (error) {
+        showMessage('Error de conexión al cambiar estado del taller.', 'error');
+    }
+}
+
+async function deleteUser(userId, userName) {
+    const confirmed = window.confirm(`¿Seguro que quieres eliminar al usuario "${userName}"?`);
+    if (!confirmed) return;
+
+    try {
+        const response = await apiFetch(`/users/${encodeURIComponent(userId)}`, {
+            method: 'DELETE'
+        });
+        const result = await response.json();
+        if (response.ok) {
+            showMessage(result.message || 'Usuario eliminado.', 'success', 2500);
+            await loadWorkshopUsers();
+            renderUsersList();
+        } else {
+            showMessage(result.message || 'No se pudo eliminar el usuario.', 'error');
+        }
+    } catch (error) {
+        showMessage('Error de conexión eliminando usuario.', 'error');
+    }
+}
+
+function openPerformanceModal() {
+    document.getElementById('performanceModal').style.display = 'flex';
+    loadPerformanceData();
+}
+
+function closePerformanceModal() {
+    document.getElementById('performanceModal').style.display = 'none';
+}
+
+async function loadPerformanceData() {
+    const container = document.getElementById('performanceContent');
+    if (!container) return;
+    container.innerHTML = '<p style="color: #64748b; text-align: center;">Cargando estadísticas...</p>';
+
+    try {
+        const response = await apiFetch('/vehicles/stats/mechanics');
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+            container.innerHTML = '<p style="color: #C52A2A; text-align: center;">No se pudieron cargar las estadísticas.</p>';
+            return;
+        }
+
+        const mechanics = result.data || [];
+        if (!mechanics.length) {
+            container.innerHTML = '<p style="color: #64748b; text-align: center;">Sin datos de mecánicos aún.</p>';
+            return;
+        }
+
+        const statusLabels = {
+            ESPERANDO_REVISION: '🕒 Esp. revisión',
+            EN_REVISION: '🛠 En revisión',
+            PRESUPUESTO_PENDIENTE: '📄 Presupuesto',
+            ESPERANDO_PIEZA: '📦 Esp. pieza',
+            MONTANDO_PIEZA: '🔩 Montando',
+            LISTO: '✅ Listo'
+        };
+
+        const statusOrder = ['ESPERANDO_REVISION', 'EN_REVISION', 'PRESUPUESTO_PENDIENTE', 'ESPERANDO_PIEZA', 'MONTANDO_PIEZA', 'LISTO'];
+
+        container.innerHTML = mechanics.map((m) => {
+            const statusRows = statusOrder
+                .filter((s) => m.statuses[s])
+                .map((s) => `<div class="perf-status-row"><span class="perf-status-label">${statusLabels[s] || s}</span><span class="perf-status-count">${m.statuses[s]}</span></div>`)
+                .join('');
+            return `
+            <div class="perf-mechanic-card">
+                <div class="perf-mechanic-header">
+                    <span class="perf-mechanic-name">${m.name}</span>
+                    <span class="perf-mechanic-username">@${m.username}</span>
+                </div>
+                <div class="perf-stats-grid">
+                    <div class="perf-stat-box perf-active"><span class="perf-stat-number">${m.active_total}</span><span class="perf-stat-label">Activos</span></div>
+                    <div class="perf-stat-box perf-done"><span class="perf-stat-number">${m.finalized}</span><span class="perf-stat-label">Finalizados</span></div>
+                </div>
+                ${statusRows ? `<div class="perf-status-detail">${statusRows}</div>` : ''}
+            </div>`;
+        }).join('');
+    } catch (error) {
+        container.innerHTML = '<p style="color: #C52A2A; text-align: center;">Error de conexión.</p>';
+    }
+}
 
 setInterval(() => {
     if (document.visibilityState === 'visible') {

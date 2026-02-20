@@ -1,6 +1,6 @@
 {
   "name": "taller-control-vehicular",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "description": "Lance Workshop - Sistema de control vehicular multi-taller con seguimiento público",
   "main": "server.js",
   "scripts": {
@@ -22,6 +22,7 @@
     "express-rate-limit": "^8.2.1",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",
+    "multer": "^2.0.2",
     "pg": "^8.18.0",
     "uuid": "^9.0.0"
   },

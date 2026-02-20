@@ -6,7 +6,7 @@ Aplicación web para talleres mecánicos desarrollada por **Lance System**.
 
 - Gestionar vehículos por taller (`multi-tenant` por `workshop_id`).
 - Actualizar estado operativo del vehículo y registrar historial (`vehicle_logs`).
-- Compartir seguimiento público por URL: `/:slug/status/:plate`.
+- Compartir seguimiento público por URL segura: `/:slug/status/:plate/:trackingHash`.
 - Mantener el panel interno protegido con autenticación por roles.
 
 ## Arquitectura (actual)
@@ -65,6 +65,7 @@ Copiar `.env.example` a `.env` y completar:
 - `MECHANIC_USERNAME`, `MECHANIC_PASSWORD`, `MECHANIC_WORKSHOP_SLUG`
 - `NODE_ENV`, `FORCE_HTTPS`, `CORS_ORIGIN`
 - `TRACKING_RATE_WINDOW_MS`, `TRACKING_RATE_MAX`
+- `TRACKING_HASH_SECRET` (recomendado para reforzar el token público)
 
 ## Levantar en local
 
@@ -105,12 +106,14 @@ Copiar `.env.example` a `.env` y completar:
 - `POST /vehicles`
 - `PATCH /vehicles/:id`
 - `PATCH /vehicles/:id/status`
+- `POST /vehicles/:id/quote-pdf` (subir presupuesto PDF)
+- `GET /vehicles/:id/quote-pdf` (ver presupuesto PDF)
 - `GET /workshops`
 - `POST /workshops` (owner)
 
 ### Público
-- `GET /api/public/:slug/status/:plate`
-- `GET /:slug/status/:plate` (página pública)
+- `GET /api/public/:slug/status/:plate/:trackingHash`
+- `GET /:slug/status/:plate/:trackingHash` (página pública)
 
 ## Marca
 

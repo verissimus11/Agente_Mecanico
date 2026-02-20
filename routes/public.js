@@ -3,7 +3,7 @@ const PublicController = require('../controllers/publicController');
 
 const router = express.Router();
 
-// GET /api/public/:slug/status/:plate - Consulta pública de estado con historial
-router.get('/:slug/status/:plate', PublicController.getVehicleStatus);
+// GET /api/public/:slug/status/:plate/:trackingHash - Consulta pública de estado con historial
+router.get('/:slug/status/:plate/:trackingHash', PublicController.getVehicleStatus);
 
 module.exports = router;

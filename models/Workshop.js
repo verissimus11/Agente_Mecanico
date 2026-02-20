@@ -75,6 +75,13 @@ class Workshop {
     await runQuery(query, [id, String(ts)]);
   }
 
+  // Habilitar / deshabilitar taller (suscripción)
+  static async setEnabled(id, enabled) {
+    const query = `UPDATE workshops SET enabled = $2 WHERE id = $1 AND active = TRUE`;
+    await runQuery(query, [id, enabled]);
+    return await getQuery('SELECT * FROM workshops WHERE id = $1', [id]);
+  }
+
   // Validar slug
   static isValidSlug(slug) {
     const normalized = Workshop.normalizeSlug(slug);

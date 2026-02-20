@@ -32,13 +32,19 @@ class PanelUser {
   }
 
   static async createMechanic(workshopId, name, username, password) {
+    return PanelUser.createUser(workshopId, name, username, password, 'mechanic');
+  }
+
+  static async createUser(workshopId, name, username, password, role = 'mechanic') {
     const id = uuidv4();
     const normalizedUsername = PanelUser.normalizeUsername(username);
+    const validRoles = ['mechanic', 'dueño'];
+    const safeRole = validRoles.includes(role) ? role : 'mechanic';
     const query = `
       INSERT INTO panel_users (id, workshop_id, username, password, name, role, active)
-      VALUES ($1, $2, $3, $4, $5, 'mechanic', TRUE)
+      VALUES ($1, $2, $3, $4, $5, $6, TRUE)
     `;
-    await runQuery(query, [id, workshopId, normalizedUsername, String(password || ''), String(name || '').trim()]);
+    await runQuery(query, [id, workshopId, normalizedUsername, String(password || ''), String(name || '').trim(), safeRole]);
     return await getQuery(
       `
       SELECT pu.id, pu.username, pu.name, pu.role, pu.workshop_id, pu.active, pu.created_at, w.slug AS workshop_slug
@@ -58,6 +64,20 @@ class PanelUser {
       ORDER BY pu.name ASC
     `;
     return await allQuery(query, [workshopId]);
+  }
+
+  static async deactivateUser(userId) {
+    const query = `UPDATE panel_users SET active = FALSE WHERE id = $1 AND active = TRUE`;
+    await runQuery(query, [userId]);
+  }
+
+  static async findById(userId) {
+    const query = `
+      SELECT pu.id, pu.username, pu.name, pu.role, pu.workshop_id, pu.active, pu.created_at
+      FROM panel_users pu
+      WHERE pu.id = $1
+    `;
+    return await getQuery(query, [userId]);
   }
 }
 

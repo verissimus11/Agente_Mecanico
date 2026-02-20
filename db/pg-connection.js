@@ -55,8 +55,10 @@ const initializeDatabase = async () => {
         created_at TIMESTAMPTZ DEFAULT NOW()
       )
     `);
+    await pool.query('ALTER TABLE workshops ADD COLUMN IF NOT EXISTS enabled BOOLEAN DEFAULT TRUE');
     await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_workshops_slug ON workshops(slug)');
     await pool.query('CREATE INDEX IF NOT EXISTS idx_workshops_active ON workshops(active)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_workshops_enabled ON workshops(enabled)');
 
     // 2. Crear tabla vehicles
     await pool.query(`
@@ -79,11 +81,16 @@ const initializeDatabase = async () => {
     await pool.query('ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS created_by_name TEXT');
     await pool.query('ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS last_status_by_username TEXT');
     await pool.query('ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS last_status_by_name TEXT');
+    await pool.query('ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS tracking_hash TEXT');
+    await pool.query('ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS quote_pdf_path TEXT');
+    await pool.query('ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS quote_pdf_uploaded_at TIMESTAMPTZ');
+    await pool.query("UPDATE vehicles SET tracking_hash = md5(id || '-' || random()::text || '-' || clock_timestamp()::text) WHERE tracking_hash IS NULL");
     await pool.query('CREATE INDEX IF NOT EXISTS idx_vehicles_plate ON vehicles(plate)');
     await pool.query('CREATE INDEX IF NOT EXISTS idx_vehicles_phone ON vehicles(phone)');
     await pool.query('CREATE INDEX IF NOT EXISTS idx_vehicles_active ON vehicles(active)');
     await pool.query('CREATE INDEX IF NOT EXISTS idx_vehicles_workshop ON vehicles(workshop_id)');
     await pool.query('CREATE INDEX IF NOT EXISTS idx_vehicles_workshop_active_updated ON vehicles(workshop_id, active, updated_at DESC)');
+    await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS idx_vehicles_tracking_hash ON vehicles(tracking_hash)');
     await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS uniq_vehicles_active_plate_per_workshop ON vehicles(workshop_id, plate) WHERE active = TRUE');
 
     // 3. Crear tabla vehicle_logs

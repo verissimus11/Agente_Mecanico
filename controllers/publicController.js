@@ -8,13 +8,20 @@ class PublicController {
   // GET /api/public/:slug/status/:plate - Consulta pública de estado
   static async getVehicleStatus(req, res) {
     try {
-      const { slug, plate } = req.params;
+      const { slug, plate, trackingHash } = req.params;
 
       // Sanitizar inputs
-      if (!slug || !plate || slug.length > 50 || plate.length > 20) {
+      if (!slug || !plate || !trackingHash || slug.length > 50 || plate.length > 20 || trackingHash.length > 128) {
         return res.status(400).json({
           error: 'INVALID_INPUT',
           message: 'Datos de consulta inválidos'
+        });
+      }
+
+      if (!/^[a-f0-9]{32,128}$/i.test(trackingHash)) {
+        return res.status(400).json({
+          error: 'INVALID_TRACKING_HASH',
+          message: 'Token de seguimiento inválido'
         });
       }
 
@@ -28,11 +35,11 @@ class PublicController {
       }
 
       // Buscar vehículo activo (solo datos públicos)
-      const vehicle = await Vehicle.findActiveByPlateAndWorkshop(workshop.id, plate);
+      const vehicle = await Vehicle.findActiveByPlateWorkshopAndHash(workshop.id, plate, trackingHash);
       if (!vehicle) {
         return res.status(404).json({
           error: 'VEHICLE_NOT_FOUND',
-          message: 'No se encontró un vehículo activo con esa matrícula.'
+          message: 'No se encontró un vehículo activo con esos datos de seguimiento.'
         });
       }
 

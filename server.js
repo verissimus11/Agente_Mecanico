@@ -71,11 +71,11 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Ruta pública de seguimiento: /:slug/status/:plate
-app.get('/:slug/status/:plate', trackingRateLimiter, (req, res) => {
-  const { slug, plate } = req.params;
+// Ruta pública de seguimiento: /:slug/status/:plate/:trackingHash
+app.get('/:slug/status/:plate/:trackingHash', trackingRateLimiter, (req, res) => {
+  const { slug, plate, trackingHash } = req.params;
   // Sanitización básica
-  if (!slug || !plate || slug.length > 50 || plate.length > 20) {
+  if (!slug || !plate || !trackingHash || slug.length > 50 || plate.length > 20 || trackingHash.length > 128) {
     return res.status(400).send('Solicitud inválida');
   }
   // Solo servir si el slug tiene formato válido (evitar colisión con rutas estáticas)

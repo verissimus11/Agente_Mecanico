@@ -1,5 +1,7 @@
 const Vehicle = require('../models/Vehicle');
 const VehicleLog = require('../models/VehicleLog');
+const path = require('path');
+const fs = require('fs');
 
 class VehicleController {
   static getActorLabel(user = {}) {
@@ -349,6 +351,168 @@ class VehicleController {
     } catch (error) {
       console.error('❌ Error buscando por ID:', error);
       return VehicleController.handleControllerError(res, error, 'Error interno del servidor');
+    }
+  }
+
+  // POST /vehicles/:id/quote-pdf - Subir PDF de presupuesto
+  static async uploadQuotePdf(req, res) {
+    try {
+      const workshopId = req.workshopId;
+      const { id } = req.params;
+      const actor = {
+        username: req.user?.username || null,
+        name: req.user?.name || req.user?.username || null
+      };
+
+      const vehicle = await Vehicle.findById(id, workshopId);
+      if (!vehicle) {
+        return res.status(404).json({
+          error: 'VEHICLE_NOT_FOUND',
+          message: 'Vehículo no encontrado'
+        });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({
+          error: 'MISSING_PDF',
+          message: 'Debes adjuntar un archivo PDF.'
+        });
+      }
+
+      if (vehicle.status !== Vehicle.STATUSES.PRESUPUESTO_PENDIENTE) {
+        return res.status(400).json({
+          error: 'INVALID_STATUS_FOR_QUOTE',
+          message: 'Solo puedes subir presupuesto cuando el vehículo está en Presupuesto pendiente.'
+        });
+      }
+
+      if (vehicle.quote_pdf_path) {
+        const previousAbsolutePath = path.join(process.cwd(), vehicle.quote_pdf_path);
+        if (fs.existsSync(previousAbsolutePath)) {
+          fs.unlinkSync(previousAbsolutePath);
+        }
+      }
+
+      const fileRelativePath = path.join('uploads', 'quotes', req.file.filename).replace(/\\/g, '/');
+      const updatedVehicle = await Vehicle.updateQuotePdf(id, workshopId, fileRelativePath);
+
+      const actorLabel = VehicleController.getActorLabel(req.user);
+      await VehicleLog.create(
+        updatedVehicle.id,
+        updatedVehicle.status,
+        `Presupuesto PDF subido\nCambiado por ${actorLabel}`,
+        actor
+      );
+
+      return res.json({
+        success: true,
+        data: updatedVehicle,
+        message: 'PDF de presupuesto subido correctamente.'
+      });
+    } catch (error) {
+      console.error('❌ Error subiendo PDF de presupuesto:', error);
+      return VehicleController.handleControllerError(res, error, 'No se pudo subir el PDF del presupuesto.');
+    }
+  }
+
+  // GET /vehicles/:id/quote-pdf - Descargar PDF de presupuesto
+  static async downloadQuotePdf(req, res) {
+    try {
+      const workshopId = req.workshopId;
+      const { id } = req.params;
+      const vehicle = await Vehicle.findById(id, workshopId);
+
+      if (!vehicle) {
+        return res.status(404).json({
+          error: 'VEHICLE_NOT_FOUND',
+          message: 'Vehículo no encontrado'
+        });
+      }
+
+      if (!vehicle.quote_pdf_path) {
+        return res.status(404).json({
+          error: 'QUOTE_PDF_NOT_FOUND',
+          message: 'Este vehículo no tiene presupuesto PDF cargado.'
+        });
+      }
+
+      const absolutePath = path.join(process.cwd(), vehicle.quote_pdf_path);
+      if (!fs.existsSync(absolutePath)) {
+        return res.status(404).json({
+          error: 'QUOTE_PDF_FILE_MISSING',
+          message: 'No se encontró el archivo PDF en disco.'
+        });
+      }
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="presupuesto-${vehicle.plate}.pdf"`);
+      return res.sendFile(absolutePath);
+    } catch (error) {
+      console.error('❌ Error descargando PDF de presupuesto:', error);
+      return VehicleController.handleControllerError(res, error, 'No se pudo descargar el PDF del presupuesto.');
+    }
+  }
+
+  // GET /vehicles/stats/mechanics - Performance de mecánicos
+  static async mechanicPerformance(req, res) {
+    try {
+      const workshopId = req.workshopId;
+      const callerRole = String(req.user?.role || '').toLowerCase();
+
+      // Solo owner y dueño pueden ver performance
+      if (callerRole !== 'owner' && callerRole !== 'dueño') {
+        return res.status(403).json({
+          error: 'FORBIDDEN',
+          message: 'No tienes permisos para ver el rendimiento de mecánicos.'
+        });
+      }
+
+      const [statusCounts, finalizedCounts] = await Promise.all([
+        Vehicle.getMechanicPerformance(workshopId),
+        Vehicle.getMechanicFinalized(workshopId)
+      ]);
+
+      // Agrupar por mecánico
+      const mechanicsMap = {};
+
+      statusCounts.forEach((row) => {
+        const key = row.mechanic_username;
+        if (!mechanicsMap[key]) {
+          mechanicsMap[key] = {
+            username: row.mechanic_username,
+            name: row.mechanic_name || row.mechanic_username,
+            statuses: {},
+            active_total: 0,
+            finalized: 0
+          };
+        }
+        mechanicsMap[key].statuses[row.status] = row.count;
+        mechanicsMap[key].active_total += row.count;
+      });
+
+      finalizedCounts.forEach((row) => {
+        const key = row.mechanic_username;
+        if (!mechanicsMap[key]) {
+          mechanicsMap[key] = {
+            username: row.mechanic_username,
+            name: row.mechanic_name || row.mechanic_username,
+            statuses: {},
+            active_total: 0,
+            finalized: 0
+          };
+        }
+        mechanicsMap[key].finalized = row.finalized;
+      });
+
+      const mechanics = Object.values(mechanicsMap).sort((a, b) => a.name.localeCompare(b.name));
+
+      return res.json({
+        success: true,
+        data: mechanics
+      });
+    } catch (error) {
+      console.error('❌ Error obteniendo performance de mecánicos:', error);
+      return VehicleController.handleControllerError(res, error, 'Error al obtener rendimiento de mecánicos.');
     }
   }
 }

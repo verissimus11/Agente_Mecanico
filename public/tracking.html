@@ -239,6 +239,7 @@
             font-size: 0.85rem;
             color: var(--gray-500);
             margin-top: 0.125rem;
+            white-space: pre-line;
         }
 
         .timeline-icon {
@@ -386,9 +387,9 @@
         // Extraer slug y plate de la URL
         function parseUrl() {
             const parts = window.location.pathname.split('/').filter(Boolean);
-            // Esperamos: /:slug/status/:plate
-            if (parts.length >= 3 && parts[1] === 'status') {
-                return { slug: parts[0], plate: parts[2] };
+            // Esperamos: /:slug/status/:plate/:trackingHash
+            if (parts.length >= 4 && parts[1] === 'status') {
+                return { slug: parts[0], plate: parts[2], trackingHash: parts[3] };
             }
             return null;
         }
@@ -430,6 +431,8 @@
             const statusHelpText = STATUS_HELP_TEXT[log.status] || 'Se registró una actualización del estado de tu vehículo.';
             const rawNote = String(log.note || '').trim();
 
+            const withActorOnNewLine = (text) => String(text || '').replace(/\s*·\s*Cambiado por\s+/i, '\nCambiado por ');
+
             if (!rawNote) {
                 return statusHelpText;
             }
@@ -437,7 +440,7 @@
             if (/^estado cambiado/i.test(rawNote)) {
                 const actorMatch = rawNote.match(/cambiado\s+por\s+(.+)$/i);
                 if (actorMatch && actorMatch[1]) {
-                    return `${statusHelpText} · Cambiado por ${actorMatch[1].trim()}`;
+                    return `${statusHelpText}\nCambiado por ${actorMatch[1].trim()}`;
                 }
                 return statusHelpText;
             }
@@ -452,7 +455,7 @@
                 return statusHelpText;
             }
 
-            return cleaned;
+            return withActorOnNewLine(cleaned);
         }
 
         function renderVehicle(data) {
@@ -517,7 +520,7 @@
             }
 
             try {
-                const response = await fetch(`/api/public/${encodeURIComponent(params.slug)}/status/${encodeURIComponent(params.plate)}`);
+                const response = await fetch(`/api/public/${encodeURIComponent(params.slug)}/status/${encodeURIComponent(params.plate)}/${encodeURIComponent(params.trackingHash)}`);
                 const result = await response.json();
 
                 if (!response.ok) {
