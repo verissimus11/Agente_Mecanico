@@ -1,6 +1,7 @@
 // Middleware de autenticación para panel interno (owner/mecánico).
 // Emite y valida JWT, y aplica control de rol por ruta.
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcrypt');
 const PanelUser = require('../models/PanelUser');
 
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '12h';
@@ -18,26 +19,32 @@ function normalizeRole(role) {
 }
 
 function getConfiguredUsers() {
-  return [
-    {
-      username: process.env.OWNER_USERNAME || 'owner',
-      password: process.env.OWNER_PASSWORD || 'LanceSystem!@2026',
+  const users = [];
+  if (process.env.OWNER_USERNAME && process.env.OWNER_PASSWORD) {
+    users.push({
+      username: process.env.OWNER_USERNAME,
+      password: process.env.OWNER_PASSWORD,
       role: 'owner',
       workshopSlug: process.env.OWNER_WORKSHOP_SLUG || null
-    },
-    {
-      username: process.env.DUENO_USERNAME || 'dueno',
-      password: process.env.DUENO_PASSWORD || 'dueno12345',
+    });
+  }
+  if (process.env.DUENO_USERNAME && process.env.DUENO_PASSWORD) {
+    users.push({
+      username: process.env.DUENO_USERNAME,
+      password: process.env.DUENO_PASSWORD,
       role: 'dueño',
-      workshopSlug: process.env.DUENO_WORKSHOP_SLUG || 'alua-odon-motor'
-    },
-    {
-      username: process.env.MECHANIC_USERNAME || 'mecanico',
-      password: process.env.MECHANIC_PASSWORD || 'mecanico12345',
+      workshopSlug: process.env.DUENO_WORKSHOP_SLUG || null
+    });
+  }
+  if (process.env.MECHANIC_USERNAME && process.env.MECHANIC_PASSWORD) {
+    users.push({
+      username: process.env.MECHANIC_USERNAME,
+      password: process.env.MECHANIC_PASSWORD,
       role: 'mechanic',
-      workshopSlug: process.env.MECHANIC_WORKSHOP_SLUG || 'alua-odon-motor'
-    }
-  ];
+      workshopSlug: process.env.MECHANIC_WORKSHOP_SLUG || null
+    });
+  }
+  return users;
 }
 
 async function findUser(username, password) {
@@ -59,7 +66,14 @@ async function findUser(username, password) {
     console.error('Error consultando usuarios de panel en BD:', error.message);
   }
 
-  return getConfiguredUsers().find((user) => user.username.toLowerCase() === u && user.password === p) || null;
+  // Usuarios configurados por env vars (passwords en texto plano en env)
+  for (const user of getConfiguredUsers()) {
+    if (user.username.toLowerCase() === u && user.password === p) {
+      return user;
+    }
+  }
+
+  return null;
 }
 
 function signUserToken(user) {

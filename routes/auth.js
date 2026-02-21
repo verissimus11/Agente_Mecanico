@@ -1,11 +1,23 @@
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const { findUser, signUserToken, authenticate } = require('../middleware/auth');
 
 const router = express.Router();
 
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,  // 15 minutos
+  max: 10,  // máximo 10 intentos
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    error: 'RATE_LIMIT_EXCEEDED',
+    message: 'Demasiados intentos de inicio de sesión. Intenta de nuevo en 15 minutos.'
+  }
+});
+
 // POST /auth/login
 // Valida credenciales de panel y devuelve JWT con rol + contexto de taller.
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
   try {
     const { username, password } = req.body || {};
 
