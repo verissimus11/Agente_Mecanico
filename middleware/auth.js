@@ -41,7 +41,7 @@ function getConfiguredUsers() {
 }
 
 async function findUser(username, password) {
-  const u = String(username || '').trim();
+  const u = String(username || '').trim().toLowerCase();
   const p = String(password || '');
 
   try {
@@ -59,7 +59,7 @@ async function findUser(username, password) {
     console.error('Error consultando usuarios de panel en BD:', error.message);
   }
 
-  return getConfiguredUsers().find((user) => user.username === u && user.password === p) || null;
+  return getConfiguredUsers().find((user) => user.username.toLowerCase() === u && user.password === p) || null;
 }
 
 function signUserToken(user) {

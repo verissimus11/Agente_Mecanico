@@ -169,7 +169,7 @@ function setupLoginForm() {
         e.preventDefault();
         loginError.style.display = 'none';
 
-        const username = document.getElementById('loginUser').value.trim();
+        const username = document.getElementById('loginUser').value.trim().toLowerCase();
         const password = document.getElementById('loginPass').value;
 
         if (!username || !password) {
@@ -591,13 +591,43 @@ async function applyEsperandoPiezaWithCatalog() {
 
     const selectedVehicle = vehicles.find((v) => v.id === selectedVehicleId);
     const plateName = selectedVehicle ? selectedVehicle.plate : '';
-    const confirmed = window.confirm(`¿Confirmar cambio de estado?\n\nVehículo: ${plateName}\nNuevo estado: Esperando Pieza\n${repairsText}\n\n📱 Se enviará notificación WhatsApp al cliente.`);
-    if (!confirmed) return;
 
-    await updateVehicleStatus('ESPERANDO_PIEZA', catalogNote);
-    extraRepairItems = [];
-    renderExtraRepairList();
-    waitingPiecePanel.style.display = 'none';
+    const modal = document.getElementById('confirmStatusModal');
+    const plateEl = document.getElementById('confirmStatusPlate');
+    const labelEl = document.getElementById('confirmStatusLabel');
+    const whatsappEl = document.getElementById('confirmStatusWhatsappNote');
+    const confirmBtn = document.getElementById('confirmStatusChangeBtn');
+    const cancelBtn = document.getElementById('cancelStatusChangeBtn');
+    const closeBtn = document.getElementById('closeConfirmStatusModalBtn');
+
+    plateEl.textContent = plateName;
+    labelEl.textContent = `Esperando Pieza - ${repairsText}`;
+    whatsappEl.textContent = '📱 Se enviará notificación WhatsApp al cliente.';
+    whatsappEl.style.display = 'block';
+    modal.style.display = 'flex';
+
+    const handleConfirm = async () => {
+        cleanup();
+        await updateVehicleStatus('ESPERANDO_PIEZA', catalogNote);
+        extraRepairItems = [];
+        renderExtraRepairList();
+        waitingPiecePanel.style.display = 'none';
+    };
+
+    const handleCancel = () => {
+        cleanup();
+    };
+
+    const cleanup = () => {
+        modal.style.display = 'none';
+        confirmBtn.removeEventListener('click', handleConfirm);
+        cancelBtn.removeEventListener('click', handleCancel);
+        closeBtn.removeEventListener('click', handleCancel);
+    };
+
+    confirmBtn.addEventListener('click', handleConfirm);
+    cancelBtn.addEventListener('click', handleCancel);
+    closeBtn.addEventListener('click', handleCancel);
 }
 
 function handleApiError(error, fallbackMessage) {
@@ -969,11 +999,41 @@ function confirmAndUpdateStatus(newStatus) {
     const plateName = selectedVehicle ? selectedVehicle.plate : '';
     const statusLabel = STATUS_MAP[newStatus] || newStatus;
     const whatsappNote = ['EN_REVISION', 'PRESUPUESTO_PENDIENTE', 'ESPERANDO_PIEZA', 'LISTO'].includes(newStatus)
-        ? '\n\n📱 Se enviará notificación WhatsApp al cliente.' : '';
-    const confirmed = window.confirm(`¿Confirmar cambio de estado?\n\nVehículo: ${plateName}\nNuevo estado: ${statusLabel}${whatsappNote}`);
-    if (confirmed) {
+        ? '📱 Se enviará notificación WhatsApp al cliente.' : '';
+
+    const modal = document.getElementById('confirmStatusModal');
+    const plateEl = document.getElementById('confirmStatusPlate');
+    const labelEl = document.getElementById('confirmStatusLabel');
+    const whatsappEl = document.getElementById('confirmStatusWhatsappNote');
+    const confirmBtn = document.getElementById('confirmStatusChangeBtn');
+    const cancelBtn = document.getElementById('cancelStatusChangeBtn');
+    const closeBtn = document.getElementById('closeConfirmStatusModalBtn');
+
+    plateEl.textContent = plateName;
+    labelEl.textContent = statusLabel;
+    whatsappEl.textContent = whatsappNote;
+    whatsappEl.style.display = whatsappNote ? 'block' : 'none';
+    modal.style.display = 'flex';
+
+    const handleConfirm = () => {
+        cleanup();
         updateVehicleStatus(newStatus);
-    }
+    };
+
+    const handleCancel = () => {
+        cleanup();
+    };
+
+    const cleanup = () => {
+        modal.style.display = 'none';
+        confirmBtn.removeEventListener('click', handleConfirm);
+        cancelBtn.removeEventListener('click', handleCancel);
+        closeBtn.removeEventListener('click', handleCancel);
+    };
+
+    confirmBtn.addEventListener('click', handleConfirm);
+    cancelBtn.addEventListener('click', handleCancel);
+    closeBtn.addEventListener('click', handleCancel);
 }
 
 async function updateVehicleStatus(newStatus, customLastEvent = null) {
@@ -1173,6 +1233,8 @@ function openWorkshopModal() {
 function closeWorkshopModal() {
     document.getElementById('workshopModal').style.display = 'none';
     document.getElementById('newWorkshopName').value = '';
+    const phoneInput = document.getElementById('newWorkshopPhone');
+    if (phoneInput) phoneInput.value = '';
 }
 
 function renderWorkshopList() {
@@ -1411,12 +1473,24 @@ document.addEventListener('click', (e) => {
     if (e.target.id === 'workshopModal') closeWorkshopModal();
     if (e.target.id === 'usersModal') closeUsersModal();
     if (e.target.id === 'performanceModal') closePerformanceModal();
+    if (e.target.id === 'editPhoneModal') {
+        const modal = document.getElementById('editPhoneModal');
+        modal.style.display = 'none';
+    }
+    if (e.target.id === 'confirmStatusModal') {
+        const modal = document.getElementById('confirmStatusModal');
+        modal.style.display = 'none';
+    }
 });
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
         closeWorkshopModal();
         closeUsersModal();
         closePerformanceModal();
+        const editPhoneModal = document.getElementById('editPhoneModal');
+        const confirmStatusModal = document.getElementById('confirmStatusModal');
+        if (editPhoneModal) editPhoneModal.style.display = 'none';
+        if (confirmStatusModal) confirmStatusModal.style.display = 'none';
     }
 });
 
@@ -1491,26 +1565,58 @@ async function toggleWorkshopEnabled(slug, name) {
 }
 
 async function editWorkshopPhone(slug, name, currentPhone) {
-    const newPhone = window.prompt(`Teléfono del taller "${name}":\n(Déjalo vacío para quitar el teléfono)`, currentPhone || '');
-    if (newPhone === null) return; // canceló
+    const modal = document.getElementById('editPhoneModal');
+    const workshopNameEl = document.getElementById('editPhoneWorkshopName');
+    const phoneInput = document.getElementById('editPhoneInput');
+    const confirmBtn = document.getElementById('confirmEditPhoneBtn');
+    const cancelBtn = document.getElementById('cancelEditPhoneBtn');
+    const closeBtn = document.getElementById('closeEditPhoneModalBtn');
 
-    try {
-        const response = await apiFetch(`/workshops/${encodeURIComponent(slug)}/phone`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone: newPhone.trim() || null })
-        });
-        const result = await response.json();
-        if (response.ok) {
-            showMessage(result.message, 'success', 3000);
-            await loadWorkshopInfo();
-            renderWorkshopList();
-        } else {
-            showMessage(result.message || 'Error al actualizar teléfono.', 'error');
-        }
-    } catch (error) {
-        showMessage('Error de conexión al actualizar teléfono.', 'error');
-    }
+    workshopNameEl.textContent = `Taller: ${name}`;
+    phoneInput.value = currentPhone || '';
+    modal.style.display = 'flex';
+    phoneInput.focus();
+
+    return new Promise((resolve) => {
+        const handleConfirm = async () => {
+            cleanup();
+            const newPhone = phoneInput.value.trim();
+            try {
+                const response = await apiFetch(`/workshops/${encodeURIComponent(slug)}/phone`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone: newPhone || null })
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    showMessage(result.message, 'success', 3000);
+                    await loadWorkshopInfo();
+                    renderWorkshopList();
+                } else {
+                    showMessage(result.message || 'Error al actualizar teléfono.', 'error');
+                }
+            } catch (error) {
+                showMessage('Error de conexión al actualizar teléfono.', 'error');
+            }
+            resolve();
+        };
+
+        const handleCancel = () => {
+            cleanup();
+            resolve();
+        };
+
+        const cleanup = () => {
+            modal.style.display = 'none';
+            confirmBtn.removeEventListener('click', handleConfirm);
+            cancelBtn.removeEventListener('click', handleCancel);
+            closeBtn.removeEventListener('click', handleCancel);
+        };
+
+        confirmBtn.addEventListener('click', handleConfirm);
+        cancelBtn.addEventListener('click', handleCancel);
+        closeBtn.addEventListener('click', handleCancel);
+    });
 }
 
 async function deleteUser(userId, userName) {
