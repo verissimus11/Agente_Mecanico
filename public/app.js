@@ -730,11 +730,13 @@ async function handleVehicleSubmit(event) {
         if (response.ok) {
             let msg = result.message;
             const createdVehicle = result.data || null;
+            const whatsappNote = result.whatsappLinkSent ? '\n\n📱 Link de seguimiento enviado al cliente por WhatsApp.' : '';
             if (currentWorkshop && currentWorkshop.slug && createdVehicle?.tracking_hash) {
                 const trackUrl = `${window.location.origin}${BASE_PATH}/${currentWorkshop.slug}/status/${plate}/${createdVehicle.tracking_hash}`;
                 msg += `\n\n🔗 URL de seguimiento: ${trackUrl}`;
             }
-            showMessage(msg, 'success', 6000);
+            msg += whatsappNote;
+            showMessage(msg, 'success', 7000);
             vehicleForm.reset();
             await loadVehicles();
             return;

@@ -114,11 +114,32 @@ class VehicleController {
       await VehicleLog.create(vehicle.id, Vehicle.STATUSES.ESPERANDO_REVISION, `Vehículo recibido por ${actorLabel}`, actor);
       
       console.log(`✅ Vehículo creado: ${vehicle.plate} - ${vehicle.phone} (taller: ${workshopId})`);
+
+      // Enviar link de seguimiento por WhatsApp al cliente
+      let whatsappLinkSent = false;
+      if (whatsapp.isEnabled() && vehicle.tracking_hash) {
+        try {
+          const workshop = await Workshop.findById(workshopId);
+          const workshopName = workshop?.name || 'Tu Taller';
+          const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+          const host = process.env.APP_DOMAIN || req.headers.host || 'localhost:3000';
+          const basePath = process.env.BASE_PATH || '/tallerflow';
+          const trackingUrl = `${protocol}://${host}${basePath}/${workshop?.slug || 'taller'}/status/${vehicle.plate}/${vehicle.tracking_hash}`;
+          
+          const message = `🚗 *${workshopName}*\n\nHola, hemos recibido tu vehículo con matrícula *${vehicle.plate}*.\n\nPuedes seguir el estado de tu reparación en cualquier momento desde este enlace:\n\n🔗 Ver Estado de mi Vehículo\n${trackingUrl}\n\n¡Gracias por confiar en nosotros!`;
+          
+          const result = await whatsapp.sendTextMessage(vehicle.phone, message);
+          whatsappLinkSent = result.sent || false;
+        } catch (waErr) {
+          console.error('📱 Error enviando link de tracking por WhatsApp:', waErr.message);
+        }
+      }
       
       res.status(201).json({
         success: true,
         data: vehicle,
-        message: Vehicle.generateStatusMessage(vehicle)
+        message: Vehicle.generateStatusMessage(vehicle),
+        whatsappLinkSent
       });
 
     } catch (error) {
