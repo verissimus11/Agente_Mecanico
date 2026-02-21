@@ -3,18 +3,26 @@ const { v4: uuidv4 } = require('uuid');
 
 class Workshop {
   // Crear nuevo taller
-  static async create(name, slug) {
+  static async create(name, slug, phone = null) {
     const id = uuidv4();
     const normalizedSlug = Workshop.normalizeSlug(slug);
+    const cleanPhone = phone ? String(phone).trim().slice(0, 20) : null;
 
     const query = `
-      INSERT INTO workshops (id, name, slug, active)
-      VALUES ($1, $2, $3, TRUE)
+      INSERT INTO workshops (id, name, slug, phone, active)
+      VALUES ($1, $2, $3, $4, TRUE)
     `;
 
-    await runQuery(query, [id, name.trim(), normalizedSlug]);
+    await runQuery(query, [id, name.trim(), normalizedSlug, cleanPhone]);
     const created = await getQuery('SELECT * FROM workshops WHERE id = $1', [id]);
     return created;
+  }
+
+  // Actualizar teléfono del taller
+  static async setPhone(id, phone) {
+    const cleanPhone = phone ? String(phone).trim().slice(0, 20) : null;
+    await runQuery('UPDATE workshops SET phone = $2 WHERE id = $1 AND active = TRUE', [id, cleanPhone]);
+    return await getQuery('SELECT * FROM workshops WHERE id = $1', [id]);
   }
 
   // Buscar taller por slug

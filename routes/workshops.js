@@ -27,7 +27,7 @@ router.get('/', requireRole(['owner', 'dueño', 'mechanic']), async (req, res) =
 // POST /workshops - Crear nuevo taller
 router.post('/', requireRole(['owner']), async (req, res) => {
   try {
-    const { name, slug } = req.body;
+    const { name, slug, phone } = req.body;
 
     if (!name || !slug) {
       return res.status(400).json({
@@ -52,7 +52,7 @@ router.post('/', requireRole(['owner']), async (req, res) => {
       });
     }
 
-    const workshop = await Workshop.create(name, slug);
+    const workshop = await Workshop.create(name, slug, phone || null);
     console.log(`🏭 Taller creado: ${workshop.name} (${workshop.slug})`);
 
     res.status(201).json({
@@ -121,6 +121,24 @@ router.patch('/:slug/toggle-enabled', requireRole(['owner']), async (req, res) =
       error: 'INTERNAL_ERROR',
       message: 'Error interno del servidor'
     });
+  }
+});
+
+// PATCH /workshops/:slug/phone - Actualizar teléfono del taller
+router.patch('/:slug/phone', requireRole(['owner', 'dueño']), async (req, res) => {
+  try {
+    const workshop = await Workshop.findBySlug(req.params.slug);
+    if (!workshop) {
+      return res.status(404).json({ error: 'WORKSHOP_NOT_FOUND', message: 'Taller no encontrado' });
+    }
+
+    const { phone } = req.body;
+    const updated = await Workshop.setPhone(workshop.id, phone || null);
+    const msg = phone ? `Teléfono actualizado para "${workshop.name}"` : `Teléfono eliminado de "${workshop.name}"`;
+    res.json({ success: true, data: updated, message: msg });
+  } catch (error) {
+    console.error('Error setting workshop phone:', error);
+    res.status(500).json({ error: 'INTERNAL_ERROR', message: 'Error interno del servidor' });
   }
 });
 

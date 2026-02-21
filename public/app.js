@@ -358,12 +358,12 @@ function setupEventListeners() {
         mechanicFilter.addEventListener('change', () => renderVehiclesTable());
     }
 
-    statusButtons.esperandoRevision.addEventListener('click', () => updateVehicleStatus('ESPERANDO_REVISION'));
-    statusButtons.enRevision.addEventListener('click', () => updateVehicleStatus('EN_REVISION'));
-    statusButtons.montandoPieza.addEventListener('click', () => updateVehicleStatus('MONTANDO_PIEZA'));
+    statusButtons.esperandoRevision.addEventListener('click', () => confirmAndUpdateStatus('ESPERANDO_REVISION'));
+    statusButtons.enRevision.addEventListener('click', () => confirmAndUpdateStatus('EN_REVISION'));
+    statusButtons.montandoPieza.addEventListener('click', () => confirmAndUpdateStatus('MONTANDO_PIEZA'));
     statusButtons.esperandoPieza.addEventListener('click', openEsperandoPiezaPanel);
-    statusButtons.presupuestoPendiente.addEventListener('click', () => updateVehicleStatus('PRESUPUESTO_PENDIENTE'));
-    statusButtons.listo.addEventListener('click', () => updateVehicleStatus('LISTO'));
+    statusButtons.presupuestoPendiente.addEventListener('click', () => confirmAndUpdateStatus('PRESUPUESTO_PENDIENTE'));
+    statusButtons.listo.addEventListener('click', () => confirmAndUpdateStatus('LISTO'));
 
     if (applyEsperandoPiezaBtn) {
         applyEsperandoPiezaBtn.addEventListener('click', applyEsperandoPiezaWithCatalog);
@@ -588,6 +588,11 @@ async function applyEsperandoPiezaWithCatalog() {
     const catalogNote = note
         ? `Esperando pieza · ${repairsText} · Nota: ${note}`
         : `Esperando pieza · ${repairsText}`;
+
+    const selectedVehicle = vehicles.find((v) => v.id === selectedVehicleId);
+    const plateName = selectedVehicle ? selectedVehicle.plate : '';
+    const confirmed = window.confirm(`¿Confirmar cambio de estado?\n\nVehículo: ${plateName}\nNuevo estado: Esperando Pieza\n${repairsText}\n\n📱 Se enviará notificación WhatsApp al cliente.`);
+    if (!confirmed) return;
 
     await updateVehicleStatus('ESPERANDO_PIEZA', catalogNote);
     extraRepairItems = [];
@@ -911,7 +916,8 @@ async function uploadBudgetPdfForSelectedVehicle() {
             budgetPdfFileInput.value = '';
         }
 
-        showMessage('Presupuesto PDF subido correctamente.', 'success', 3000);
+        const whatsappNote = result.whatsappPdfSent ? ' 📱 PDF enviado por WhatsApp al cliente.' : '';
+        showMessage(`Presupuesto PDF subido correctamente.${whatsappNote}`, 'success', 4000);
         await loadVehicles();
         updateSelectionState();
     } catch (error) {
@@ -954,6 +960,22 @@ function setStatusButtonsEnabled(enabled) {
     });
 }
 
+function confirmAndUpdateStatus(newStatus) {
+    if (!selectedVehicleId) {
+        showMessage('Selecciona un vehículo para cambiar el estado.', 'error');
+        return;
+    }
+    const selectedVehicle = vehicles.find((v) => v.id === selectedVehicleId);
+    const plateName = selectedVehicle ? selectedVehicle.plate : '';
+    const statusLabel = STATUS_MAP[newStatus] || newStatus;
+    const whatsappNote = ['EN_REVISION', 'PRESUPUESTO_PENDIENTE', 'ESPERANDO_PIEZA', 'LISTO'].includes(newStatus)
+        ? '\n\n📱 Se enviará notificación WhatsApp al cliente.' : '';
+    const confirmed = window.confirm(`¿Confirmar cambio de estado?\n\nVehículo: ${plateName}\nNuevo estado: ${statusLabel}${whatsappNote}`);
+    if (confirmed) {
+        updateVehicleStatus(newStatus);
+    }
+}
+
 async function updateVehicleStatus(newStatus, customLastEvent = null) {
     if (!selectedVehicleId) {
         showMessage('Selecciona un vehículo para cambiar el estado.', 'error');
@@ -989,7 +1011,8 @@ async function updateVehicleStatus(newStatus, customLastEvent = null) {
         });
 
         if (response.ok) {
-            showMessage('Estado actualizado correctamente.', 'success', 3000);
+            const whatsappNote = result.whatsappSent ? ' 📱 WhatsApp enviado.' : '';
+            showMessage(`Estado actualizado correctamente.${whatsappNote}`, 'success', 3000);
             if (waitingPiecePanel) waitingPiecePanel.style.display = 'none';
             await loadVehicles();
         } else {
@@ -1164,13 +1187,18 @@ function renderWorkshopList() {
         const statusBadge = enabled
             ? '<span class="workshop-status-badge enabled">Activo</span>'
             : '<span class="workshop-status-badge disabled">Deshabilitado</span>';
+        const phoneDisplay = ws.phone
+            ? `<span class="workshop-item-phone">📞 ${ws.phone}</span>`
+            : '<span class="workshop-item-phone workshop-no-phone">Sin teléfono</span>';
         return `
         <div class="workshop-item${enabled ? '' : ' workshop-disabled'}">
             <div class="workshop-item-info">
                 <span class="workshop-item-name">${ws.name} ${statusBadge}</span>
                 <span class="workshop-item-slug">${ws.slug}</span>
+                ${phoneDisplay}
             </div>
             <div class="workshop-item-actions">
+                <button class="btn-edit-phone" data-phone-slug="${ws.slug}" data-phone-name="${ws.name}" data-phone-current="${ws.phone || ''}">📞 Teléfono</button>
                 <button class="btn-toggle-enabled" data-toggle-slug="${ws.slug}" data-toggle-name="${ws.name}">${enabled ? '⏸ Deshabilitar' : '▶ Habilitar'}</button>
                 <button class="btn-delete-workshop" data-delete-slug="${ws.slug}" data-delete-name="${ws.name}">🗑 Eliminar</button>
             </div>
@@ -1191,7 +1219,9 @@ function slugify(text) {
 
 async function addWorkshop() {
     const nameInput = document.getElementById('newWorkshopName');
+    const phoneInput = document.getElementById('newWorkshopPhone');
     const name = (nameInput.value || '').trim();
+    const phone = (phoneInput.value || '').trim();
 
     if (!name || name.length < 2) {
         showMessage('Escribe un nombre de taller (mínimo 2 caracteres).', 'error');
@@ -1204,11 +1234,14 @@ async function addWorkshop() {
         return;
     }
 
+    const payload = { name, slug };
+    if (phone) payload.phone = phone;
+
     try {
         const response = await apiFetch('/workshops', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, slug })
+            body: JSON.stringify(payload)
         });
 
         const result = await response.json();
@@ -1216,6 +1249,7 @@ async function addWorkshop() {
         if (response.ok) {
             showMessage(`Taller "${name}" creado correctamente.`, 'success', 3000);
             nameInput.value = '';
+            phoneInput.value = '';
             await loadWorkshopInfo();
             renderWorkshopList();
         } else {
@@ -1394,7 +1428,7 @@ document.getElementById('newWorkshopName').addEventListener('keydown', (e) => {
     }
 });
 
-// Event delegation para botón eliminar/habilitar taller
+// Event delegation para botón eliminar/habilitar/teléfono taller
 document.getElementById('workshopListManage').addEventListener('click', (e) => {
     const deleteBtn = e.target.closest('[data-delete-slug]');
     if (deleteBtn) {
@@ -1404,6 +1438,11 @@ document.getElementById('workshopListManage').addEventListener('click', (e) => {
     const toggleBtn = e.target.closest('[data-toggle-slug]');
     if (toggleBtn) {
         toggleWorkshopEnabled(toggleBtn.dataset.toggleSlug, toggleBtn.dataset.toggleName);
+        return;
+    }
+    const phoneBtn = e.target.closest('[data-phone-slug]');
+    if (phoneBtn) {
+        editWorkshopPhone(phoneBtn.dataset.phoneSlug, phoneBtn.dataset.phoneName, phoneBtn.dataset.phoneCurrent);
     }
 });
 
@@ -1448,6 +1487,29 @@ async function toggleWorkshopEnabled(slug, name) {
         }
     } catch (error) {
         showMessage('Error de conexión al cambiar estado del taller.', 'error');
+    }
+}
+
+async function editWorkshopPhone(slug, name, currentPhone) {
+    const newPhone = window.prompt(`Teléfono del taller "${name}":\n(Déjalo vacío para quitar el teléfono)`, currentPhone || '');
+    if (newPhone === null) return; // canceló
+
+    try {
+        const response = await apiFetch(`/workshops/${encodeURIComponent(slug)}/phone`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone: newPhone.trim() || null })
+        });
+        const result = await response.json();
+        if (response.ok) {
+            showMessage(result.message, 'success', 3000);
+            await loadWorkshopInfo();
+            renderWorkshopList();
+        } else {
+            showMessage(result.message || 'Error al actualizar teléfono.', 'error');
+        }
+    } catch (error) {
+        showMessage('Error de conexión al actualizar teléfono.', 'error');
     }
 }
 

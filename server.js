@@ -171,7 +171,7 @@ const startServer = async () => {
     
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`
-    🚗 TallerFlow v0.7.0 by Lance Systems
+    🚗 TallerFlow v0.8.0 by Lance Systems
 🟢 http://localhost:${PORT}${BASE_PATH}
 🌐 LAN: http://TU_IP_LOCAL:${PORT}${BASE_PATH}
 📊 PostgreSQL conectada

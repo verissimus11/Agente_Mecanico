@@ -1,5 +1,7 @@
 const Vehicle = require('../models/Vehicle');
 const VehicleLog = require('../models/VehicleLog');
+const Workshop = require('../models/Workshop');
+const whatsapp = require('../services/whatsapp');
 const path = require('path');
 const fs = require('fs');
 
@@ -184,11 +186,25 @@ class VehicleController {
 
       console.log(`🔄 Estado actualizado: ${vehicle.plate} → ${status}`);
 
+      // Notificar por WhatsApp si el estado lo requiere
+      let whatsappResult = { sent: false };
+      if (whatsapp.shouldNotify(status)) {
+        try {
+          const workshop = await Workshop.findById(workshopId);
+          const workshopName = workshop?.name || 'Tu Taller';
+          const detail = typeof last_event === 'string' ? last_event.trim() : '';
+          whatsappResult = await whatsapp.notifyStatusChange(vehicle, workshopName, detail);
+        } catch (waErr) {
+          console.error('📱 Error enviando WhatsApp:', waErr.message);
+        }
+      }
+
       res.json({
         success: true,
         data: vehicle,
         message: 'Estado actualizado correctamente',
-        statusMessage: Vehicle.generateStatusMessage(vehicle)
+        statusMessage: Vehicle.generateStatusMessage(vehicle),
+        whatsappSent: whatsappResult.sent || false
       });
 
     } catch (error) {
@@ -404,10 +420,27 @@ class VehicleController {
         actor
       );
 
+      // Enviar presupuesto PDF por WhatsApp
+      let whatsappPdfResult = { sent: false };
+      if (whatsapp.isEnabled()) {
+        try {
+          const workshop = await Workshop.findById(workshopId);
+          const workshopName = workshop?.name || 'Tu Taller';
+          const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+          const host = process.env.APP_DOMAIN || req.headers.host || 'localhost:3000';
+          const basePath = process.env.BASE_PATH || '/tallerflow';
+          const pdfUrl = `${protocol}://${host}${basePath}/vehicles/${id}/quote-pdf`;
+          whatsappPdfResult = await whatsapp.sendQuotePdf(updatedVehicle, workshopName, pdfUrl);
+        } catch (waErr) {
+          console.error('📱 Error enviando PDF por WhatsApp:', waErr.message);
+        }
+      }
+
       return res.json({
         success: true,
         data: updatedVehicle,
-        message: 'PDF de presupuesto subido correctamente.'
+        message: 'PDF de presupuesto subido correctamente.',
+        whatsappPdfSent: whatsappPdfResult.sent || false
       });
     } catch (error) {
       console.error('❌ Error subiendo PDF de presupuesto:', error);

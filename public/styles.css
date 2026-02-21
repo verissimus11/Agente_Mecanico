@@ -748,7 +748,6 @@ body {
 /* ====== MODAL OVERLAY ====== */
 
 .modal-overlay {
-    display: none;
     position: fixed;
     inset: 0;
     background: rgba(0, 0, 0, 0.45);
@@ -756,6 +755,7 @@ body {
     align-items: center;
     justify-content: center;
     padding: 1rem;
+    overflow-y: auto;
 }
 
 .modal {
@@ -913,6 +913,10 @@ body {
     max-width: 540px;
 }
 
+.modal-users {
+    max-width: 680px;
+}
+
 .workshop-add-form {
     margin-bottom: 1.5rem;
     padding-bottom: 1.5rem;
@@ -974,6 +978,35 @@ body {
     font-family: monospace;
 }
 
+.workshop-item-phone {
+    font-size: 0.8rem;
+    color: #2563eb;
+    font-weight: 500;
+}
+
+.workshop-no-phone {
+    color: #94a3b8;
+    font-style: italic;
+}
+
+.btn-edit-phone {
+    padding: 0.3rem 0.65rem;
+    border: 1px solid #93c5fd;
+    border-radius: var(--border-radius-sm, 6px);
+    background: #eff6ff;
+    color: #1d4ed8;
+    cursor: pointer;
+    font-size: 0.78rem;
+    font-family: 'Inter', sans-serif;
+    transition: all 0.18s;
+    white-space: nowrap;
+}
+
+.btn-edit-phone:hover {
+    background: #dbeafe;
+    border-color: #60a5fa;
+}
+
 .btn-delete-workshop {
     padding: 0.35rem 0.7rem;
     font-size: 0.8rem;
@@ -992,7 +1025,7 @@ body {
 
 .users-form-row {
     display: grid;
-    grid-template-columns: 1.1fr 1fr 1fr auto;
+    grid-template-columns: 1fr 1fr 1fr auto auto;
     gap: 0.6rem;
     align-items: end;
 }

@@ -5,6 +5,27 @@ Todos los cambios importantes de este proyecto serán documentados en este archi
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/),
 y este proyecto adhiere al [Versionado Semántico](https://semver.org/lang/es/).
 
+## [0.8.0] - 2026-02-21
+
+### Agregado
+- **Notificaciones WhatsApp**: Integración con WhatsApp Business API (Cloud API - Meta) para notificar al cliente en 4 estados clave: En revisión, Presupuesto pendiente, Esperando pieza y Listo
+- **Envío de presupuesto PDF por WhatsApp**: Al subir el PDF de presupuesto, se envía automáticamente al cliente por WhatsApp
+- **Teléfono del taller**: Campo opcional de teléfono al crear talleres, editable después desde el panel de gestión de talleres
+- **Confirmación de cambio de estado**: Diálogo de confirmación antes de cada cambio de estado del vehículo, incluyendo aviso de notificación WhatsApp
+- **Editar teléfono del taller**: Botón de edición de teléfono en la lista de talleres para owners y dueños
+
+### Cambiado
+- **Modal de usuarios**: Más ancho (680px vs 540px) y con grid mejorado que incluye selector de rol visible
+- **Matrícula de ejemplo**: Cambiada de "3107 JBN" a "1234 ABC" para formato europeo más claro
+- **Contraseña del owner**: Actualizada a nueva contraseña segura
+- **Versión**: Bump a v0.8.0
+
+### Mejorado
+- **Modelo Workshop**: Métodos `create()` acepta teléfono, nuevo `setPhone()` para actualizar
+- **Ruta workshops**: Nuevo endpoint `PATCH /workshops/:slug/phone` para actualizar teléfono
+- **Base de datos**: Columna `phone` en tabla `workshops` (migración automática)
+- **Servicio WhatsApp**: Módulo `services/whatsapp.js` con mensajes personalizados por estado
+
 ## [0.3.0] - 2026-02-17
 
 ### Agregado

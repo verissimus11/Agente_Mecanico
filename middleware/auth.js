@@ -21,7 +21,7 @@ function getConfiguredUsers() {
   return [
     {
       username: process.env.OWNER_USERNAME || 'owner',
-      password: process.env.OWNER_PASSWORD || 'owner12345',
+      password: process.env.OWNER_PASSWORD || 'LanceSystem!@2026',
       role: 'owner',
       workshopSlug: process.env.OWNER_WORKSHOP_SLUG || null
     },
